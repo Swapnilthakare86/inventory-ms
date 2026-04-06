@@ -38,7 +38,8 @@ export default function Login() {
     } catch (err) {
       setForm(f => ({ ...f, password: '' }));
       if (!err.response) setServerError('No connection. Check your internet.');
-      else if (err.response.status === 401) setServerError('Invalid email or password.');
+      else if (err.response.status === 404) setServerError('Invalid credentials.');
+      else if (err.response.status === 401) setServerError('Incorrect password.');
       else setServerError('Server error. Please try again later.');
     } finally {
       setLoading(false);

@@ -25,11 +25,11 @@ exports.login = async (req, res) => {
   const { email, password } = req.body;
   try {
     const [rows] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
-    if (rows.length === 0) return res.status(400).json({ message: 'Invalid credentials.' });
+    if (rows.length === 0) return res.status(404).json({ message: 'Invalid credentials.' });
 
     const user = rows[0];
     const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(400).json({ message: 'Invalid credentials.' });
+    if (!match) return res.status(401).json({ message: 'Incorrect password.' });
 
     const token = jwt.sign(
       { id: user.id, name: user.name, email: user.email, role: user.role },
