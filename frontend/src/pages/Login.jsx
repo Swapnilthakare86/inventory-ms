@@ -36,7 +36,7 @@ export default function Login() {
       login(data.user, data.token);
       navigate(
         data.user.role === 'admin' ? '/admin/dashboard' :
-        data.user.role === 'staff' ? '/staff/products' :
+        data.user.role === 'staff' ? '/staff/dashboard' :
         '/user/products'
       );
     } catch (err) {

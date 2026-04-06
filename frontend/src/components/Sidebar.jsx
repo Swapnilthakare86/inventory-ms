@@ -18,9 +18,10 @@ export default function Sidebar() {
   ];
 
   const staffLinks = [
-    { to: '/staff/products', label: 'Products' },
-    { to: '/staff/orders',   label: 'Orders'   },
-    { to: '/staff/profile',  label: 'Profile'  },
+    { to: '/staff/dashboard', label: 'Dashboard' },
+    { to: '/staff/products',  label: 'Products'  },
+    { to: '/staff/orders',    label: 'Orders'    },
+    { to: '/staff/profile',   label: 'Profile'   },
   ];
 
   const userLinks = [

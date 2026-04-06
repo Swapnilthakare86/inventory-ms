@@ -16,9 +16,11 @@ app = FastAPI(
 )
 
 # Allow React frontend to call this service
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[FRONTEND_URL],
     allow_methods=["GET"],
     allow_headers=["*"],
     expose_headers=["Content-Disposition"],
