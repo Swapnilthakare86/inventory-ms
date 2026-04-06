@@ -152,7 +152,7 @@ export default function AdminSuppliers() {
                   <label htmlFor="sup-name" className="form-label small fw-medium">Name</label>
                   <input id="sup-name" type="text"
                     className={`form-control ${errors.name ? 'is-invalid' : ''}`}
-                    value={form.name} onChange={handleChange('name')} placeholder="e.g. TechSupply Co" />
+                    value={form.name} onChange={handleChange('name')} placeholder=" Enter supplier name" />
                   {errors.name && <div className="invalid-feedback">{errors.name}</div>}
                 </div>
 
@@ -160,7 +160,7 @@ export default function AdminSuppliers() {
                   <label htmlFor="sup-email" className="form-label small fw-medium">Email</label>
                   <input id="sup-email" type="email"
                     className={`form-control ${errors.email ? 'is-invalid' : ''}`}
-                    value={form.email} onChange={handleChange('email')} placeholder="e.g. contact@supplier.in" />
+                    value={form.email} onChange={handleChange('email')} placeholder=" Enter supplier email" />
                   {errors.email && <div className="invalid-feedback">{errors.email}</div>}
                 </div>
 
