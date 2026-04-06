@@ -36,8 +36,21 @@ export default function Dashboard() {
     MICRO.get('/charts/order-status').then(r => setOrderStatus(r.data));
   }, []);
 
-  const handleExport = (type) => {
-    window.open(`http://localhost:5001/api/export/${type}`, '_blank');
+  const handleExport = async (type) => {
+    try {
+      const res = await MICRO.get(`/export/${type}`, { responseType: 'blob' });
+      const blob = new Blob([res.data], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${type}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Export failed. Make sure the microservice is running on port 5001.');
+    }
   };
 
   return (
