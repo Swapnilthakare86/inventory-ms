@@ -104,7 +104,7 @@ export default function StaffProducts() {
                     <td>{p.name}</td>
                     <td>{p.category_name}</td>
                     <td>{p.supplier_name}</td>
-                    <td>₹{parseFloat(p.price).toFixed(2)}</td>
+                    <td>{parseFloat(p.price).toFixed(2)}</td>
                     <td>{p.stock}</td>
                     <td><span className={`badge bg-${s.color}`}>{s.label}</span></td>
                     <td>

@@ -64,7 +64,7 @@ export default function SharedOrders() {
                   <td>{o.product_name}</td>
                   <td>{o.category_name}</td>
                   <td>{o.quantity}</td>
-                  <td>₹{parseFloat(o.total_price).toFixed(2)}</td>
+                  <td>{parseFloat(o.total_price).toFixed(2)}</td>
                   <td>{new Date(o.order_date).toLocaleDateString()}</td>
                   <td>{statusBadge(o.status)}</td>
                   <td>
