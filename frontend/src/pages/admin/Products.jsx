@@ -77,7 +77,7 @@ export default function AdminProducts() {
                   <td>{p.name}</td>
                   <td>{p.category_name}</td>
                   <td>{p.supplier_name}</td>
-                  <td>${parseFloat(p.price).toFixed(2)}</td>
+                  <td>{parseFloat(p.price).toFixed(2)}</td>
                   <td>{p.stock}</td>
                   <td>
                     <div className="d-flex gap-1">
