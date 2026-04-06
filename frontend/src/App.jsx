@@ -14,6 +14,9 @@ import AdminOrders from './pages/admin/Orders';
 import AdminSuppliers from './pages/admin/Suppliers';
 import AdminUsers from './pages/admin/Users';
 import AdminProfile from './pages/admin/Profile';
+import StaffProducts from './pages/staff/Products';
+import StaffOrders from './pages/staff/Orders';
+import StaffProfile from './pages/staff/Profile';
 import UserProducts from './pages/user/Products';
 import UserOrders from './pages/user/Orders';
 import UserProfile from './pages/user/Profile';
@@ -47,8 +50,10 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<PublicLayout><Login /></PublicLayout>} />
+          <Route path="/login"    element={<PublicLayout><Login /></PublicLayout>} />
           <Route path="/register" element={<PublicLayout><Register /></PublicLayout>} />
+
+          {/* Admin routes */}
           <Route path="/admin/*" element={
             <PrivateRoute role="admin">
               <AppLayout>
@@ -64,6 +69,21 @@ export default function App() {
               </AppLayout>
             </PrivateRoute>
           } />
+
+          {/* Staff routes */}
+          <Route path="/staff/*" element={
+            <PrivateRoute role="staff">
+              <AppLayout>
+                <Routes>
+                  <Route path="products" element={<StaffProducts />} />
+                  <Route path="orders"   element={<StaffOrders />} />
+                  <Route path="profile"  element={<StaffProfile />} />
+                </Routes>
+              </AppLayout>
+            </PrivateRoute>
+          } />
+
+          {/* User routes */}
           <Route path="/user/*" element={
             <PrivateRoute role="user">
               <AppLayout>
@@ -75,6 +95,7 @@ export default function App() {
               </AppLayout>
             </PrivateRoute>
           } />
+
           <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
       </BrowserRouter>

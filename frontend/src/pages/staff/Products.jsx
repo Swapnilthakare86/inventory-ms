@@ -3,7 +3,7 @@ import API from '../../api/axios';
 
 const empty = { name: '', category_id: '', supplier_id: '', price: '', stock: '' };
 
-export default function AdminProducts() {
+export default function StaffProducts() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -12,7 +12,6 @@ export default function AdminProducts() {
   const [showModal, setShowModal] = useState(false);
   const [msg, setMsg] = useState({ text: '', type: 'info' });
   const [search, setSearch] = useState('');
-  const [catFilter, setCatFilter] = useState('');
   const [stockFilter, setStockFilter] = useState('all');
 
   const fetchAll = () => {
@@ -48,33 +47,22 @@ export default function AdminProducts() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this product?')) return;
-    try {
-      await API.delete(`/products/${id}`);
-      notify('Product deleted.', 'success');
-      fetchAll();
-    } catch (err) {
-      notify(err.response?.data?.message || 'Error', 'danger');
-    }
-  };
-
   const stockStatus = (stock) => {
     if (stock === 0) return { label: 'Out of Stock', color: 'danger' };
     if (stock <= 5) return { label: 'Low Stock', color: 'warning' };
     return { label: 'In Stock', color: 'success' };
   };
 
-  const lowStockCount = products.filter(p => p.stock <= 5).length;
-
   const filtered = products.filter(p => {
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
-    const matchCat = !catFilter || p.category_name === catFilter;
+    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.category_name || '').toLowerCase().includes(search.toLowerCase());
     const matchStock = stockFilter === 'all' ? true :
       stockFilter === 'low' ? p.stock <= 5 && p.stock > 0 :
       stockFilter === 'out' ? p.stock === 0 : true;
-    return matchSearch && matchCat && matchStock;
+    return matchSearch && matchStock;
   });
+
+  const lowStockCount = products.filter(p => p.stock <= 5).length;
 
   return (
     <div className="p-4">
@@ -84,20 +72,16 @@ export default function AdminProducts() {
       </div>
 
       {lowStockCount > 0 && (
-        <div className="alert alert-warning py-2 small" role="alert">
+        <div className="alert alert-warning py-2 small d-flex align-items-center gap-2" role="alert">
           ⚠️ <strong>{lowStockCount} product(s)</strong> are low on stock or out of stock.
         </div>
       )}
 
       {msg.text && <div className={`alert alert-${msg.type} py-2 small`} role="alert">{msg.text}</div>}
 
-      <div className="d-flex gap-2 mb-3 flex-wrap">
-        <input className="form-control" style={{ maxWidth: 220 }} placeholder="Search products..."
+      <div className="d-flex gap-2 mb-3">
+        <input className="form-control" style={{ maxWidth: 260 }} placeholder="Search products..."
           value={search} onChange={e => setSearch(e.target.value)} />
-        <select className="form-select" style={{ maxWidth: 180 }} value={catFilter} onChange={e => setCatFilter(e.target.value)}>
-          <option value="">All Categories</option>
-          {categories.map(c => <option key={c.id}>{c.name}</option>)}
-        </select>
         <select className="form-select" style={{ maxWidth: 160 }} value={stockFilter} onChange={e => setStockFilter(e.target.value)}>
           <option value="all">All Stock</option>
           <option value="low">Low Stock</option>
@@ -112,9 +96,7 @@ export default function AdminProducts() {
               <tr><th>S NO</th><th>Name</th><th>Category</th><th>Supplier</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={8} className="text-center text-muted py-3">No products found</td></tr>
-              ) : filtered.map((p, i) => {
+              {filtered.map((p, i) => {
                 const s = stockStatus(p.stock);
                 return (
                   <tr key={p.id} className={p.stock === 0 ? 'table-danger' : p.stock <= 5 ? 'table-warning' : ''}>
@@ -126,10 +108,7 @@ export default function AdminProducts() {
                     <td>{p.stock}</td>
                     <td><span className={`badge bg-${s.color}`}>{s.label}</span></td>
                     <td>
-                      <div className="d-flex gap-1">
-                        <button className="btn btn-sm btn-warning" onClick={() => openEdit(p)}>Edit</button>
-                        <button className="btn btn-sm btn-danger" onClick={() => handleDelete(p.id)}>Delete</button>
-                      </div>
+                      <button className="btn btn-sm btn-warning" onClick={() => openEdit(p)}>Edit</button>
                     </td>
                   </tr>
                 );

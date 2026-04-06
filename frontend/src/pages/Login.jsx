@@ -34,7 +34,11 @@ export default function Login() {
         password: form.password,
       });
       login(data.user, data.token);
-      navigate(data.user.role === 'admin' ? '/admin/dashboard' : '/user/products');
+      navigate(
+        data.user.role === 'admin' ? '/admin/dashboard' :
+        data.user.role === 'staff' ? '/staff/products' :
+        '/user/products'
+      );
     } catch (err) {
       setForm(f => ({ ...f, password: '' }));
       if (!err.response) setServerError('No connection. Check your internet.');

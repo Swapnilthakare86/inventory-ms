@@ -1,6 +1,5 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
@@ -18,18 +17,27 @@ export default function Sidebar() {
     { to: '/admin/profile',   label: 'Profile'   },
   ];
 
+  const staffLinks = [
+    { to: '/staff/products', label: 'Products' },
+    { to: '/staff/orders',   label: 'Orders'   },
+    { to: '/staff/profile',  label: 'Profile'  },
+  ];
+
   const userLinks = [
     { to: '/user/products', label: 'Products' },
     { to: '/user/orders',   label: 'Orders'   },
     { to: '/user/profile',  label: 'Profile'  },
   ];
 
-  const links = user?.role === 'admin' ? adminLinks : userLinks;
+  const links = user?.role === 'admin' ? adminLinks : user?.role === 'staff' ? staffLinks : userLinks;
 
   return (
     <div className="d-flex flex-column" style={{ width: 220, minHeight: '100vh', background: '#1a1f2e' }}>
       <div className="p-3 border-bottom border-secondary">
         <span className="text-white fw-semibold">Inventory MS</span>
+        {user?.role === 'staff' && (
+          <span className="badge bg-info ms-2" style={{ fontSize: 10 }}>Staff</span>
+        )}
       </div>
       <nav className="flex-grow-1 py-2">
         {links.map(link => (

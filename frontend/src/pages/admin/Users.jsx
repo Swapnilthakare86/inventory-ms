@@ -157,6 +157,7 @@ export default function AdminUsers() {
                   <select id="u-role" className="form-select" value={form.role}
                     onChange={handleChange('role')}>
                     <option value="user">User</option>
+                    <option value="staff">Staff</option>
                     <option value="admin">Admin</option>
                   </select>
                 </div>
