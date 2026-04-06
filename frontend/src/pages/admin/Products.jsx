@@ -40,8 +40,6 @@ export default function AdminProducts() {
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('');
   const [stockFilter, setStockFilter] = useState('all');
-  const [sortField, setSortField] = useState('');
-  const [sortDir, setSortDir] = useState('asc');
   const [page, setPage] = useState(1);
   const [deleteId, setDeleteId] = useState(null);
 
@@ -127,20 +125,6 @@ export default function AdminProducts() {
     return { label: 'In Stock', color: 'success' };
   };
 
-  const handleSort = (field) => {
-    if (sortField === field) {
-      setSortDir((current) => (current === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortField(field);
-      setSortDir('asc');
-    }
-  };
-
-  const sortIcon = (field) => {
-    if (sortField !== field) return ' <>';
-    return sortDir === 'asc' ? ' ^' : ' v';
-  };
-
   const lowStockCount = products.filter((product) => product.stock <= 5).length;
 
   let filtered = products.filter((product) => {
@@ -155,18 +139,6 @@ export default function AdminProducts() {
 
     return matchSearch && matchCategory && matchStock;
   });
-
-  if (sortField) {
-    filtered = [...filtered].sort((a, b) => {
-      const aValue =
-        sortField === 'price' ? parseFloat(a.price) : sortField === 'stock' ? a.stock : a[sortField];
-      const bValue =
-        sortField === 'price' ? parseFloat(b.price) : sortField === 'stock' ? b.stock : b[sortField];
-
-      if (aValue === bValue) return 0;
-      return sortDir === 'asc' ? (aValue > bValue ? 1 : -1) : (aValue < bValue ? 1 : -1);
-    });
-  }
 
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
@@ -289,17 +261,11 @@ export default function AdminProducts() {
             <thead className="table-light">
               <tr>
                 <th>S NO</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('name')}>
-                  Name{sortIcon('name')}
-                </th>
+                <th>Name</th>
                 <th>Category</th>
                 <th>Supplier</th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('price')}>
-                  Price{sortIcon('price')}
-                </th>
-                <th style={{ cursor: 'pointer' }} onClick={() => handleSort('stock')}>
-                  Stock{sortIcon('stock')}
-                </th>
+                <th>Price</th>
+                <th>Stock</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
