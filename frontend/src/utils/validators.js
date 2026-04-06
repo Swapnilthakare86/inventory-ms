@@ -1,5 +1,5 @@
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ALLOWED_DOMAINS = ['xtsworld.in', 'test.com'];
+const ALLOWED_DOMAINS = ['.in', '.com'];
 const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/;
 
 export const validateLogin = ({ email, password }) => {
