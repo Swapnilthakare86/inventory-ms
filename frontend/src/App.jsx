@@ -47,7 +47,7 @@ function AppLayout({ children }) {
       <Sidebar />
       <div className="d-flex flex-column flex-grow-1" style={{ background: '#f4f5f7' }}>
         <Header />
-        <div className="flex-grow-1">{children}</div>
+        <div className="flex-grow-1" style={{ overflowY: 'auto' }}>{children}</div>
         <Footer />
       </div>
     </div>

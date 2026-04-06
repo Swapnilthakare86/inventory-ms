@@ -6,7 +6,7 @@ export default function Header() {
   return (
     <div
       className="d-flex align-items-center justify-content-between px-4 py-2 border-bottom bg-white"
-      style={{ height: 56 }}
+      style={{ height: 56, position: 'sticky', top: 0, zIndex: 100 }}
     >
       <span className="fw-semibold text-muted small">
         Welcome back, <span className="text-dark">{user?.name}</span>
