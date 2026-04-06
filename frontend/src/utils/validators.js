@@ -1,10 +1,19 @@
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ALLOWED_DOMAINS = ['xtsworld.in', 'test.com'];
 const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/;
 
 export const validateLogin = ({ email, password }) => {
   const errors = {};
-  if (!email.trim()) errors.email = 'Email is required';
-  else if (!EMAIL_REGEX.test(email.trim())) errors.email = 'Enter a valid email address';
+  if (!email.trim()) {
+    errors.email = 'Email is required';
+  } else if (!EMAIL_REGEX.test(email.trim())) {
+    errors.email = 'Enter a valid email address';
+  } else {
+    const domain = email.trim().split('@')[1];
+    if (!ALLOWED_DOMAINS.includes(domain)) {
+      errors.email = `Email must be from an allowed domain (e.g. @xtsworld.in or @test.com)`;
+    }
+  }
   if (!password) errors.password = 'Password is required';
   else if (password.length < 8) errors.password = 'Password must be at least 8 characters';
   return errors;
