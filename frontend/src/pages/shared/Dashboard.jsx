@@ -75,12 +75,6 @@ export default function SharedDashboard({ isAdmin = false }) {
     <div className="p-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h4 className="fw-semibold mb-0">Dashboard</h4>
-        {isAdmin && (
-          <div className="d-flex gap-2">
-            <button className="btn btn-sm btn-outline-primary" onClick={() => handleExport('orders')}>Export Orders CSV</button>
-            <button className="btn btn-sm btn-outline-success" onClick={() => handleExport('stock')}>Export Stock CSV</button>
-          </div>
-        )}
       </div>
 
       {showStockAlert && stats.lowStock > 0 && (

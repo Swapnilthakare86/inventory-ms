@@ -75,24 +75,8 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* User info + logout */}
-      <div className="p-3 border-top border-secondary">
-        {!collapsed && (
-          <div className="d-flex align-items-center gap-2 mb-2">
-            <div
-              className="rounded-circle text-white d-flex align-items-center justify-content-center fw-semibold"
-              style={{ width: 32, height: 32, fontSize: 13, background: '#3d82f5', flexShrink: 0 }}
-            >
-              {user?.name?.charAt(0).toUpperCase()}
-            </div>
-            <div className="lh-1 overflow-hidden">
-              <div className="text-white small fw-medium text-truncate">{user?.name}</div>
-              <span className={`badge bg-${roleBadgeColor[user?.role] || 'secondary'}`} style={{ fontSize: 9 }}>
-                {user?.role}
-              </span>
-            </div>
-          </div>
-        )}
+      {/*logout */}
+      <div className="p-3 border-secondary">  
         <button
           className="btn btn-sm btn-outline-secondary text-white w-100 d-flex align-items-center justify-content-center gap-2"
           onClick={handleLogout}

@@ -7,11 +7,56 @@ import SkeletonTable from '../../components/SkeletonTable';
 
 const PER_PAGE = 10;
 
+const STATUS_OPTIONS = [
+  ['all', 'All'],
+  ['placed', 'Placed'],
+  ['received', 'Received'],
+  ['cancelled', 'Cancelled'],
+];
+
+const DATE_OPTIONS = [
+  ['all', 'All Time'],
+  ['today', 'Today'],
+  ['week', 'This Week'],
+  ['month', 'This Month'],
+];
+
+const formatCurrency = (value) => `Rs. ${parseFloat(value).toFixed(2)}`;
+
+const escapeCsvValue = (value) => {
+  const text = String(value ?? '');
+  if (text.includes('"') || text.includes(',') || text.includes('\n')) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+};
+
+const filterOrdersByDate = (list, dateFilter) => {
+  const now = new Date();
+
+  if (dateFilter === 'today') {
+    return list.filter((order) => new Date(order.order_date).toDateString() === now.toDateString());
+  }
+
+  if (dateFilter === 'week') {
+    const weekStart = new Date(now.getTime() - 7 * 86400000);
+    return list.filter((order) => new Date(order.order_date) >= weekStart);
+  }
+
+  if (dateFilter === 'month') {
+    const monthStart = new Date(now.getTime() - 30 * 86400000);
+    return list.filter((order) => new Date(order.order_date) >= monthStart);
+  }
+
+  return list;
+};
+
 export default function SharedOrders() {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(1);
   const [confirm, setConfirm] = useState({ show: false, id: null, status: '' });
   const [detailOrder, setDetailOrder] = useState(null);
@@ -19,11 +64,16 @@ export default function SharedOrders() {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const r = await API.get('/orders');
-      setOrders(r.data);
-    } finally { setLoading(false); }
+      const response = await API.get('/orders');
+      setOrders(response.data);
+    } finally {
+      setLoading(false);
+    }
   };
-  useEffect(() => { fetchOrders(); }, []);
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
 
   const updateStatus = async () => {
     try {
@@ -32,47 +82,123 @@ export default function SharedOrders() {
       fetchOrders();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Error');
-    } finally { setConfirm({ show: false, id: null, status: '' }); }
+    } finally {
+      setConfirm({ show: false, id: null, status: '' });
+    }
   };
 
-  const statusBadge = (s) => {
+  const statusBadge = (status) => {
     const map = { placed: 'warning', received: 'success', cancelled: 'danger' };
-    return <span className={`badge bg-${map[s] || 'secondary'}`}>{s}</span>;
+    return <span className={`badge bg-${map[status] || 'secondary'}`}>{status}</span>;
   };
 
-  const filterByDate = (list) => {
-    const now = new Date();
-    if (dateFilter === 'today') return list.filter(o => new Date(o.order_date).toDateString() === now.toDateString());
-    if (dateFilter === 'week') { const w = new Date(now - 7 * 86400000); return list.filter(o => new Date(o.order_date) >= w); }
-    if (dateFilter === 'month') { const m = new Date(now - 30 * 86400000); return list.filter(o => new Date(o.order_date) >= m); }
-    return list;
-  };
-
-  const statusFiltered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
-  const filtered = filterByDate(statusFiltered);
+  const statusFiltered =
+    filter === 'all' ? orders : orders.filter((order) => order.status === filter);
+  const filtered = filterOrdersByDate(statusFiltered, dateFilter);
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  const countOf = (s) => orders.filter(o => o.status === s).length;
+  const countOf = (status) => orders.filter((order) => order.status === status).length;
+
+  const handleExport = async () => {
+    if (filtered.length === 0) {
+      toast.error('No orders available for the selected filters.');
+      return;
+    }
+
+    setExporting(true);
+
+    try {
+      const rows = [
+        [
+          'Order ID',
+          'Customer',
+          'Address',
+          'Product',
+          'Category',
+          'Quantity',
+          'Total',
+          'Order Date',
+          'Status',
+        ],
+        ...filtered.map((order) => [
+          order.id,
+          order.user_name,
+          order.address,
+          order.product_name,
+          order.category_name,
+          order.quantity,
+          parseFloat(order.total_price).toFixed(2),
+          new Date(order.order_date).toLocaleString(),
+          order.status,
+        ]),
+      ];
+
+      const csvContent = rows
+        .map((row) => row.map((value) => escapeCsvValue(value)).join(','))
+        .join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const stamp = new Date().toISOString().slice(0, 10);
+
+      link.href = url;
+      link.download = `orders-${filter}-${dateFilter}-${stamp}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success('Orders CSV downloaded.');
+    } catch {
+      toast.error('Failed to export orders.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="p-4">
       <h4 className="fw-semibold mb-4">Orders</h4>
 
-      {/* Status filter with count badges */}
-      <div className="mb-3 d-flex gap-2 flex-wrap">
-        {[['all', 'All'], ['placed', 'Placed'], ['received', 'Received'], ['cancelled', 'Cancelled']].map(([s, label]) => (
-          <button key={s} className={`btn btn-sm ${filter === s ? 'btn-primary' : 'btn-outline-secondary'}`}
-            onClick={() => { setFilter(s); setPage(1); }}>
-            {label} {s !== 'all' && <span className="badge bg-white text-dark ms-1">{countOf(s)}</span>}
+      <div className="mb-3 d-flex gap-2 flex-wrap align-items-center">
+        {STATUS_OPTIONS.map(([status, label]) => (
+          <button
+            key={status}
+            className={`btn btn-sm ${filter === status ? 'btn-primary' : 'btn-outline-secondary'}`}
+            onClick={() => {
+              setFilter(status);
+              setPage(1);
+            }}
+          >
+            {label}{' '}
+            {status !== 'all' && (
+              <span className="badge bg-white text-dark ms-1">{countOf(status)}</span>
+            )}
           </button>
         ))}
-        <div className="ms-auto d-flex gap-2">
-          {[['all', 'All Time'], ['today', 'Today'], ['week', 'This Week'], ['month', 'This Month']].map(([d, label]) => (
-            <button key={d} className={`btn btn-sm ${dateFilter === d ? 'btn-dark' : 'btn-outline-secondary'}`}
-              onClick={() => { setDateFilter(d); setPage(1); }}>
+
+        <div className="ms-auto d-flex gap-2 flex-wrap justify-content-end">
+          {DATE_OPTIONS.map(([value, label]) => (
+            <button
+              key={value}
+              className={`btn btn-sm ${dateFilter === value ? 'btn-dark' : 'btn-outline-secondary'}`}
+              onClick={() => {
+                setDateFilter(value);
+                setPage(1);
+              }}
+            >
               {label}
             </button>
           ))}
+
+          <button
+            className="btn btn-sm btn-outline-primary"
+            onClick={handleExport}
+            disabled={exporting || loading || filtered.length === 0}
+          >
+            {exporting ? 'Exporting...' : 'Export Orders CSV'}
+          </button>
         </div>
       </div>
 
@@ -81,40 +207,71 @@ export default function SharedOrders() {
           <table className="table table-hover mb-0">
             <thead className="table-light">
               <tr>
-                <th>S NO</th><th>Customer</th><th>Address</th><th>Product</th>
-                <th>Category</th><th>Qty</th><th>Total</th><th>Date</th>
-                <th>Status</th><th>Actions</th>
+                <th>S NO</th>
+                <th>Customer</th>
+                <th>Address</th>
+                <th>Product</th>
+                <th>Category</th>
+                <th>Qty</th>
+                <th>Total</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
-            {loading ? <SkeletonTable cols={10} rows={5} /> : (
+            {loading ? (
+              <SkeletonTable cols={10} rows={5} />
+            ) : (
               <tbody>
                 {paginated.length === 0 ? (
-                  <tr><td colSpan={10} className="text-center text-muted py-4">No orders found</td></tr>
-                ) : paginated.map((o, i) => (
-                  <tr key={o.id} style={{ cursor: 'pointer' }} onClick={() => setDetailOrder(o)}>
-                    <td>{(page - 1) * PER_PAGE + i + 1}</td>
-                    <td>{o.user_name}</td>
-                    <td>{o.address}</td>
-                    <td>{o.product_name}</td>
-                    <td>{o.category_name}</td>
-                    <td>{o.quantity}</td>
-                    <td>₹{parseFloat(o.total_price).toFixed(2)}</td>
-                    <td>{new Date(o.order_date).toLocaleDateString()}</td>
-                    <td>{statusBadge(o.status)}</td>
-                    <td onClick={e => e.stopPropagation()}>
-                      <div className="d-flex gap-2">
-                        {o.status === 'placed' && (
-                          <button className="btn btn-sm btn-success"
-                            onClick={() => setConfirm({ show: true, id: o.id, status: 'received' })}>Received</button>
-                        )}
-                        {o.status !== 'cancelled' && (
-                          <button className="btn btn-sm btn-danger"
-                            onClick={() => setConfirm({ show: true, id: o.id, status: 'cancelled' })}>Cancel</button>
-                        )}
-                      </div>
+                  <tr>
+                    <td colSpan={10} className="text-center text-muted py-4">
+                      No orders found
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  paginated.map((order, index) => (
+                    <tr
+                      key={order.id}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => setDetailOrder(order)}
+                    >
+                      <td>{(page - 1) * PER_PAGE + index + 1}</td>
+                      <td>{order.user_name}</td>
+                      <td>{order.address}</td>
+                      <td>{order.product_name}</td>
+                      <td>{order.category_name}</td>
+                      <td>{order.quantity}</td>
+                      <td>{formatCurrency(order.total_price)}</td>
+                      <td>{new Date(order.order_date).toLocaleDateString()}</td>
+                      <td>{statusBadge(order.status)}</td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <div className="d-flex gap-2">
+                          {order.status === 'placed' && (
+                            <button
+                              className="btn btn-sm btn-success"
+                              onClick={() =>
+                                setConfirm({ show: true, id: order.id, status: 'received' })
+                              }
+                            >
+                              Received
+                            </button>
+                          )}
+                          {order.status !== 'cancelled' && (
+                            <button
+                              className="btn btn-sm btn-danger"
+                              onClick={() =>
+                                setConfirm({ show: true, id: order.id, status: 'cancelled' })
+                              }
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             )}
           </table>
@@ -124,10 +281,16 @@ export default function SharedOrders() {
         </div>
       </div>
 
-      {/* Order Detail Modal */}
       {detailOrder && (
-        <div className="modal d-block" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => setDetailOrder(null)}>
-          <div className="modal-dialog modal-dialog-centered" onClick={e => e.stopPropagation()}>
+        <div
+          className="modal d-block"
+          style={{ background: 'rgba(0,0,0,0.4)' }}
+          onClick={() => setDetailOrder(null)}
+        >
+          <div
+            className="modal-dialog modal-dialog-centered"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="modal-content p-4">
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <h5 className="fw-semibold mb-0">Order Details</h5>
@@ -140,7 +303,7 @@ export default function SharedOrders() {
                 ['Product', detailOrder.product_name],
                 ['Category', detailOrder.category_name],
                 ['Quantity', detailOrder.quantity],
-                ['Total', `₹${parseFloat(detailOrder.total_price).toFixed(2)}`],
+                ['Total', formatCurrency(detailOrder.total_price)],
                 ['Date', new Date(detailOrder.order_date).toLocaleString()],
                 ['Status', detailOrder.status],
               ].map(([label, value]) => (
