@@ -33,7 +33,7 @@ export default function Sidebar() {
   const links = user?.role === 'admin' ? adminLinks : user?.role === 'staff' ? staffLinks : userLinks;
 
   return (
-    <div className="d-flex flex-column" style={{ width: 220, minHeight: '100vh', background: '#1a1f2e' }}>
+    <div className="d-flex flex-column" style={{ width: 220, height: '100vh', position: 'sticky', top: 0, background: '#1a1f2e', overflowY: 'auto', flexShrink: 0 }}>
       <div className="p-3 border-bottom border-secondary">
         <span className="text-white fw-semibold">Inventory MS</span>
         {user?.role === 'staff' && (
