@@ -118,9 +118,6 @@ export default function AdminCategories() {
               {errors.description
                 ? <div className="invalid-feedback d-block">{errors.description}</div>
                 : <span />}
-              <small className={`text-muted ${form.description.length > 40 ? 'text-danger' : ''}`}>
-                {form.description.length}/50
-              </small>
             </div>
           </div>
 
