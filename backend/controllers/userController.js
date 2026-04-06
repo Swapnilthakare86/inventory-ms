@@ -17,8 +17,13 @@ exports.create = async (req, res) => {
 };
 
 exports.remove = async (req, res) => {
-  await db.query('DELETE FROM users WHERE id = ?', [req.params.id]);
-  res.json({ message: 'User deleted.' });
+  try {
+    await db.query('DELETE FROM orders WHERE user_id = ?', [req.params.id]);
+    await db.query('DELETE FROM users WHERE id = ?', [req.params.id]);
+    res.json({ message: 'User deleted.' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
 
 exports.updateProfile = async (req, res) => {
