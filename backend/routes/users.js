@@ -5,4 +5,5 @@ router.get('/', verifyToken, isAdmin, ctrl.getAll);
 router.post('/', verifyToken, isAdmin, ctrl.create);
 router.delete('/:id', verifyToken, isAdmin, ctrl.remove);
 router.put('/profile', verifyToken, ctrl.updateProfile);
+router.put('/change-password', verifyToken, ctrl.changePassword);
 module.exports = router;

@@ -35,3 +35,15 @@ exports.updateProfile = async (req, res, next) => {
     res.json({ message: 'Profile updated.' });
   } catch (err) { next(err); }
 };
+
+exports.changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const [[user]] = await db.query('SELECT * FROM users WHERE id = ?', [req.user.id]);
+    const match = await bcrypt.compare(currentPassword, user.password);
+    if (!match) return res.status(400).json({ message: 'Current password is incorrect.' });
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await db.query('UPDATE users SET password = ? WHERE id = ?', [hashed, req.user.id]);
+    res.json({ message: 'Password changed successfully.' });
+  } catch (err) { next(err); }
+};
