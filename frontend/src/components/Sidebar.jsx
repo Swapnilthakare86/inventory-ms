@@ -6,7 +6,7 @@ import {
   FiUsers, FiUser, FiLogOut, FiMenu
 } from 'react-icons/fi';
 
-const roleBadgeColor = { admin: 'danger', staff: 'info', user: 'success' };
+const roleBadgeColor = { admin: '#e24b4a', staff: '#3d82f5', user: '#22b566' };
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
@@ -42,43 +42,33 @@ export default function Sidebar() {
   const w = collapsed ? 64 : 220;
 
   return (
-    <div
-      className="d-flex flex-column"
-      style={{ width: w, height: '100vh', position: 'sticky', top: 0, background: '#1a1f2e', overflowY: 'auto', flexShrink: 0, transition: 'width 0.2s' }}
-    >
-      {/* Header */}
-      <div className="d-flex align-items-center justify-content-between px-3 py-3 border-bottom border-secondary">
-        {!collapsed && <span className="text-white fw-semibold small">Inventory MS</span>}
-        <button className="btn btn-sm p-0 text-white-50 ms-auto" onClick={() => setCollapsed(c => !c)}>
+    <div className="sidebar" style={{ width: w }}>
+      <div className="sidebar__header">
+        {!collapsed && <span className="sidebar__brand">Inventory MS</span>}
+        <button className="sidebar__toggle" onClick={() => setCollapsed(c => !c)}>
           <FiMenu size={18} />
         </button>
       </div>
 
-      {/* Nav Links */}
-      <nav className="flex-grow-1 py-2">
+      <nav className="sidebar__nav">
         {links.map(link => (
           <NavLink
             key={link.to}
             to={link.to}
             title={collapsed ? link.label : ''}
             className={({ isActive }) =>
-              `d-flex align-items-center gap-2 px-3 py-2 text-decoration-none small ${isActive ? 'text-white' : 'text-white-50'}`
+              `sidebar__link${isActive ? ' sidebar__link--active' : ''}`
             }
-            style={({ isActive }) => ({
-              borderLeft: isActive ? '3px solid #3d82f5' : '3px solid transparent',
-              background: 'transparent',
-            })}
           >
-            <span style={{ fontSize: 16, flexShrink: 0 }}>{link.icon}</span>
+            <span className="sidebar__icon">{link.icon}</span>
             {!collapsed && <span>{link.label}</span>}
           </NavLink>
         ))}
       </nav>
 
-      {/*logout */}
-      <div className="p-3 border-secondary">  
+      <div className="sidebar__footer">
         <button
-          className="btn btn-sm btn-outline-secondary text-white w-100 d-flex align-items-center justify-content-center gap-2"
+          className="btn btn-sm btn-outline-secondary text-white sidebar__logout"
           onClick={handleLogout}
           title="Logout"
         >

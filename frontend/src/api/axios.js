@@ -9,18 +9,23 @@ API.interceptors.request.use((config) => {
   return config;
 });
 
-// Global response interceptor — redirect to login on token expiry
+// Redirect to login only when authentication is invalid or expired.
 API.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      const isAuthRoute = error.config?.url?.includes('/auth/');
-      if (!isAuthRoute) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-      }
+    const status = error.response?.status;
+    const message = String(error.response?.data?.message || '').toLowerCase();
+    const isAuthRoute = error.config?.url?.includes('/auth/');
+    const shouldLogout =
+      status === 401 ||
+      (status === 403 && (message.includes('invalid token') || message.includes('token')));
+
+    if (shouldLogout && !isAuthRoute) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
     }
+
     return Promise.reject(error);
   }
 );

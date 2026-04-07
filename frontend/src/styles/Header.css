@@ -1,0 +1,42 @@
+.header {
+  height: var(--header-height);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+}
+
+.header__welcome { font-size: 14px; color: var(--muted); }
+.header__welcome strong { color: var(--text); font-weight: 600; }
+
+.header__right { display: flex; align-items: center; gap: 10px; }
+
+.header__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.header__user-name { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.2; }
+
+.header__role-badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  color: #fff;
+  display: inline-block;
+}

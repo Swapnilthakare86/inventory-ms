@@ -1,0 +1,101 @@
+.auth-field {
+  height: 52px;
+  border-radius: 14px;
+  padding-left: 44px;
+  font-size: 14px;
+  border: 1.5px solid var(--border);
+  background: var(--card);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.auth-field:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(49,94,251,0.1);
+  outline: none;
+}
+
+.auth-input-icon {
+  background: #f8fafc;
+  border-color: var(--border);
+  border-right: none;
+  color: var(--muted);
+}
+
+.auth-password-btn {
+  background: #f8fafc;
+  border-color: var(--border);
+  border-left: none;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+}
+
+.auth-submit-btn {
+  height: 52px;
+  border-radius: 14px;
+  font-weight: 700;
+  border: none;
+  color: #fff;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.auth-submit-btn--login {
+  background: var(--primary);
+  box-shadow: 0 18px 32px rgba(49,94,251,0.22);
+}
+
+.auth-submit-btn--register {
+  background: var(--success);
+  box-shadow: 0 18px 32px rgba(31,143,95,0.18);
+}
+
+.auth-alert {
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+.auth-alert--error {
+  background: #fff2f2;
+  color: #b13838;
+  border: 1px solid #f2c9c9;
+}
+
+.auth-alert--success {
+  background: var(--success-soft);
+  color: var(--success);
+  border: 1px solid #cfe9da;
+}
+
+.auth-tag {
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.auth-tag--login    { background: var(--primary-soft); color: var(--primary); }
+.auth-tag--register { background: var(--success-soft); color: var(--success); }
+
+.auth-strength-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: #e8edf5;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.auth-strength-fill { height: 100%; transition: width 0.3s ease; }

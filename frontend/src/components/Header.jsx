@@ -1,26 +1,25 @@
 import { useAuth } from '../context/AuthContext';
 
+const roleColor = { admin: '#e24b4a', staff: '#3d82f5', user: '#22b566' };
+
 export default function Header() {
   const { user } = useAuth();
+  const color = roleColor[user?.role] || '#3d82f5';
 
   return (
-    <div
-      className="d-flex align-items-center justify-content-between px-4 py-2 border-bottom bg-white"
-      style={{ height: 56, position: 'sticky', top: 0, zIndex: 100 }}
-    >
-      <span className="fw-semibold text-muted small">
-        Welcome back, <span className="text-dark">{user?.name}</span>
-      </span>
-      <div className="d-flex align-items-center gap-2">
-        <div
-          className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
-          style={{ width: 32, height: 32, fontSize: 13, fontWeight: 600 }}
-        >
+    <div className="header">
+      <div className="header__welcome">
+        Welcome back, <strong>{user?.name}</strong>
+      </div>
+      <div className="header__right">
+        <div className="header__avatar" style={{ background: color }}>
           {user?.name?.charAt(0).toUpperCase()}
         </div>
-        <div className="lh-1">
-          <div className="small fw-medium">{user?.name}</div>
-          <div style={{ fontSize: 11 }} className="text-muted">{user?.role}</div>
+        <div>
+          <div className="header__user-name">{user?.name}</div>
+          <span className="header__role-badge" style={{ background: color }}>
+            {user?.role}
+          </span>
         </div>
       </div>
     </div>
