@@ -1,216 +1,548 @@
 import { useEffect, useState } from 'react';
-import { MICRO } from '../../api/axios';
 import API from '../../api/axios';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, Tooltip, Legend, ResponsiveContainer
+  XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
+import {
+  HiOutlineCube,
+  HiOutlineArchiveBox,
+  HiOutlineShoppingCart,
+  HiOutlineCurrencyRupee,
+  HiOutlineExclamationTriangle,
+} from 'react-icons/hi2';
 
-const COLORS = ['#3d82f5', '#22b566', '#e8a320', '#e24b4a'];
+// Map status to color for pie chart
+const STATUS_COLORS = {
+  cancelled: '#DC2626', // red
+  received: '#16A34A', // green
+  placed: '#2563EB',   // blue (default for placed)
+  // add more statuses if needed
+};
 
-export default function SharedDashboard({ isAdmin = false }) {
-  const [stats, setStats] = useState({ products: 0, stock: 0, ordersToday: 0, revenue: 0, lowStock: 0 });
+const C = {
+  primary: '#2563EB',
+  success: '#16A34A',
+  warning: '#D97706',
+  danger: '#DC2626',
+  purple: '#7C3AED',
+  bg: '#F1F5F9',
+  card: '#FFFFFF',
+  border: '#E2E8F0',
+  text: '#0F172A',
+  muted: '#64748B',
+  label: '#94A3B8',
+};
+
+const card = {
+  background: C.card,
+  borderRadius: 10,
+  border: `1px solid ${C.border}`,
+  boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+  padding: '10px',
+};
+
+const chartCard = {
+  ...card,
+  display: 'flex',
+  flexDirection: 'column',
+  minHeight: 0,
+  minWidth: 0,
+  width: '100%',
+  height: '100%',
+};
+
+const chartArea = {
+  flex: 1,
+  minHeight: 0,
+  minWidth: 0,
+  width: '100%',
+};
+
+const topChartArea = {
+  ...chartArea,
+  height: 110,
+  overflow: 'hidden',
+};
+
+const bottomChartArea = {
+  ...chartArea,
+  height: 110,
+  overflow: 'hidden',
+};
+
+const StatCard = ({ label, value, icon: Icon, color }) => (
+  <div
+    style={{
+      ...card,
+      padding: '10px 16px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 14,
+      height: 80,
+    }}
+  >
+    <div
+      style={{
+        width: 38,
+        height: 38,
+        borderRadius: 8,
+        background: `${color}18`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+      }}
+    >
+      <Icon size={20} color={color} />
+    </div>
+    <div>
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 600,
+          textTransform: 'uppercase',
+          letterSpacing: '0.4px',
+          color: C.muted,
+        }}
+      >
+        {label}
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: C.text, lineHeight: 1.2 }}>{value}</div>
+    </div>
+  </div>
+);
+
+const CardTitle = ({ children }) => (
+  <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 8 }}>{children}</div>
+);
+
+const StatusBadge = ({ status }) => {
+  const map = {
+    placed: [C.warning, '#FFFBEB'],
+    received: [C.success, '#F0FDF4'],
+    cancelled: [C.danger, '#FFF5F5'],
+  };
+  const [color, bg] = map[status] || [C.muted, '#F8FAFC'];
+
+  return (
+    <span
+      style={{
+        fontSize: 11,
+        fontWeight: 600,
+        padding: '3px 10px',
+        borderRadius: 20,
+        background: bg,
+        color,
+      }}
+    >
+      {status}
+    </span>
+  );
+};
+
+const formatDateKey = (value) => new Date(value).toISOString().slice(0, 10);
+
+const buildOrdersPerDay = (orders) => {
+  const last30 = new Date();
+  last30.setDate(last30.getDate() - 30);
+
+  const grouped = orders.reduce((acc, order) => {
+    const orderDate = new Date(order.order_date);
+    if (orderDate < last30) return acc;
+
+    const key = formatDateKey(order.order_date);
+    if (!acc[key]) {
+      acc[key] = { date: key, count: 0, revenue: 0 };
+    }
+
+    acc[key].count += 1;
+    if (order.status !== 'cancelled') {
+      acc[key].revenue += parseFloat(order.total_price || 0);
+    }
+    return acc;
+  }, {});
+
+  return Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date));
+};
+
+const buildStockByCategory = (products) => {
+  const grouped = products.reduce((acc, product) => {
+    const key = product.category_name || 'Uncategorized';
+    acc[key] = (acc[key] || 0) + Number(product.stock || 0);
+    return acc;
+  }, {});
+
+  return Object.entries(grouped).map(([category, total_stock]) => ({ category, total_stock }));
+};
+
+const buildTopProducts = (orders) => {
+  const grouped = orders.reduce((acc, order) => {
+    if (order.status === 'cancelled') return acc;
+    const key = order.product_name || 'Unknown';
+    acc[key] = (acc[key] || 0) + Number(order.quantity || 0);
+    return acc;
+  }, {});
+
+  return Object.entries(grouped)
+    .map(([name, total_sold]) => ({ name, total_sold }))
+    .sort((a, b) => b.total_sold - a.total_sold)
+    .slice(0, 5);
+};
+
+const buildOrderStatus = (orders) => {
+  const grouped = orders.reduce((acc, order) => {
+    const key = order.status || 'unknown';
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
+  return Object.entries(grouped).map(([status, count]) => ({ status, count }));
+};
+
+export default function Dashboard({ isAdmin = false }) {
+  const [stats, setStats] = useState({
+    products: 0,
+    stock: 0,
+    ordersToday: 0,
+    revenue: 0,
+    lowStock: 0,
+  });
   const [ordersPerDay, setOrdersPerDay] = useState([]);
   const [stockByCategory, setStockByCategory] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
   const [orderStatus, setOrderStatus] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
   const [lowStockProducts, setLowStockProducts] = useState([]);
-  const [showStockAlert, setShowStockAlert] = useState(true);
+  const [showAlert, setShowAlert] = useState(true);
 
   const fetchData = () => {
-    API.get('/products').then(r => {
-      const prods = r.data;
-      const low = prods.filter(p => p.stock <= 5);
-      setLowStockProducts(low);
-      setStats(s => ({
-        ...s,
-        products: prods.length,
-        stock: prods.reduce((a, p) => a + p.stock, 0),
-        lowStock: low.length,
-      }));
-    });
-    API.get('/orders').then(r => {
-      const today = new Date().toDateString();
-      const todayOrders = r.data.filter(o => new Date(o.order_date).toDateString() === today);
-      const revenue = r.data.filter(o => o.status !== 'cancelled').reduce((a, o) => a + parseFloat(o.total_price), 0);
-      setRecentOrders(r.data.slice(0, 5));
-      setStats(s => ({ ...s, ordersToday: todayOrders.length, revenue: revenue.toFixed(2) }));
-    });
-    MICRO.get('/charts/orders-per-day').then(r => setOrdersPerDay(r.data)).catch(() => {});
-    MICRO.get('/charts/stock-by-category').then(r => setStockByCategory(r.data)).catch(() => {});
-    MICRO.get('/charts/top-products').then(r => setTopProducts(r.data)).catch(() => {});
-    MICRO.get('/charts/order-status').then(r => setOrderStatus(r.data)).catch(() => {});
+    API.get('/products')
+      .then((r) => {
+        const prods = r.data;
+        const low = prods.filter((p) => p.stock <= 5);
+        setStockByCategory(buildStockByCategory(prods));
+        setLowStockProducts(low);
+        setStats((s) => ({
+          ...s,
+          products: prods.length,
+          stock: prods.reduce((a, p) => a + p.stock, 0),
+          lowStock: low.length,
+        }));
+      })
+      .catch(() => {});
+
+    API.get('/orders')
+      .then((r) => {
+        const orders = r.data;
+        const today = new Date().toDateString();
+        const revenue = orders
+          .filter((o) => o.status !== 'cancelled')
+          .reduce((a, o) => a + parseFloat(o.total_price), 0);
+
+        setOrdersPerDay(buildOrdersPerDay(orders));
+        setTopProducts(buildTopProducts(orders));
+        setOrderStatus(buildOrderStatus(orders));
+        setRecentOrders(orders.slice(0, 4));
+        setStats((s) => ({
+          ...s,
+          ordersToday: orders.filter((o) => new Date(o.order_date).toDateString() === today).length,
+          revenue: revenue.toFixed(2),
+        }));
+      })
+      .catch(() => {});
   };
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
+    const t = setInterval(fetchData, 30000);
+    return () => clearInterval(t);
   }, []);
 
-  const handleExport = async (type) => {
-    try {
-      const res = await MICRO.get(`/export/${type}`, { responseType: 'blob' });
-      const blob = new Blob([res.data], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${type}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch {
-      alert('Export failed. Make sure the microservice is running on port 5001.');
-    }
-  };
-
-  const statusBadge = (s) => {
-    const map = { placed: 'warning', received: 'success', cancelled: 'danger' };
-    return <span className={`badge bg-${map[s] || 'secondary'}`}>{s}</span>;
-  };
-
   return (
-    <div className="p-4">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h4 className="fw-semibold mb-0">Dashboard</h4>
+    <div
+      style={{
+        background: C.bg,
+        padding: '12px 10px 12px 16px',
+        height: 'calc(100vh - 92px)',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        boxSizing: 'border-box',
+        width: '100%',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+        <span style={{ fontSize: 18, fontWeight: 700, color: C.text }}>Dashboard</span>
       </div>
 
-      {showStockAlert && stats.lowStock > 0 && (
-        <div className="alert alert-warning alert-dismissible py-2 small d-flex align-items-center gap-2 mb-4" role="alert">
-          ⚠️ <strong>{stats.lowStock} product(s)</strong> are low on stock or out of stock.
-          <button type="button" className="btn-close ms-auto" onClick={() => setShowStockAlert(false)} />
+      {showAlert && stats.lowStock > 0 && (
+        <div
+          style={{
+            flexShrink: 0,
+            minHeight: 36,
+            background: '#FFFBEB',
+            border: '1px solid #FDE68A',
+            borderRadius: 8,
+            display: 'inline-flex',
+            alignItems: 'center',
+            padding: '0 12px',
+            gap: 8,
+            fontSize: 14,
+            color: '#92400E',
+            width: 'fit-content',
+            maxWidth: '100%',
+          }}
+        >
+          <HiOutlineExclamationTriangle size={15} />
+          <strong>{stats.lowStock} product(s)</strong> are low on stock or out of stock.
+          <button
+            onClick={() => setShowAlert(false)}
+            style={{
+              marginLeft: 'auto',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 15,
+              color: '#92400E',
+              lineHeight: 1,
+            }}
+          >
+            x
+          </button>
         </div>
       )}
 
-      {/* Stat Cards */}
-      <div className="row g-3 mb-4">
-        {[
-          { label: 'Total Products',  value: stats.products,             color: '#3d82f5' },
-          { label: 'Total Stock',     value: stats.stock,                color: '#22b566' },
-          { label: 'Orders Today',    value: stats.ordersToday,          color: '#e8a320' },
-          { label: 'Revenue',         value: `₹${stats.revenue}`,       color: '#9055d6' },
-          { label: 'Low Stock Items', value: stats.lowStock,             color: stats.lowStock > 0 ? '#e24b4a' : '#6c757d' },
-        ].map(c => (
-          <div className="col-md-2 col-sm-4" key={c.label}>
-            <div className="rounded-3 p-3 text-white" style={{ background: c.color }}>
-              <div className="small mb-1">{c.label}</div>
-              <div className="fs-4 fw-semibold">{c.value}</div>
-            </div>
-          </div>
-        ))}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 140px))', gap: 8, flexShrink: 0 }}>
+        <StatCard label="Total Products" value={stats.products} icon={HiOutlineCube} color={C.primary} />
+        <StatCard label="Total Stock" value={stats.stock} icon={HiOutlineArchiveBox} color={C.success} />
+        <StatCard label="Orders Today" value={stats.ordersToday} icon={HiOutlineShoppingCart} color={C.warning} />
+        <StatCard label="Revenue" value={`${stats.revenue}`} icon={HiOutlineCurrencyRupee} color={C.purple} />
+        <StatCard
+          label="Low Stock"
+          value={stats.lowStock}
+          icon={HiOutlineExclamationTriangle}
+          color={stats.lowStock > 0 ? C.danger : C.muted}
+        />
       </div>
 
-      {/* Charts Row 1 — admin only shows orders/revenue line chart */}
-      <div className="row g-3 mb-3">
-        {isAdmin && (
-          <div className="col-md-8">
-            <div className="card p-3">
-              <div className="small fw-medium mb-2 text-muted">Orders & Revenue (Last 30 days)</div>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={ordersPerDay}>
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip /><Legend />
-                  <Line type="monotone" dataKey="count" stroke="#3d82f5" name="Orders" />
-                  <Line type="monotone" dataKey="revenue" stroke="#22b566" name="Revenue" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '54% 22% 20%', gap: 8, flex: '0 0 34%', minHeight: 0, minWidth: 0, overflow: 'hidden' }}>
+        <div style={chartCard}>
+          <CardTitle>Orders & Revenue - Last 30 Days</CardTitle>
+          <div style={topChartArea}>
+            <ResponsiveContainer width="100%" height={90}>
+              <LineChart data={ordersPerDay} margin={{ top: 4, right: 8, left: 3, bottom: 0 }}>
+                <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Line type="monotone" dataKey="count" stroke={C.primary} strokeWidth={2} dot={false} name="Orders" />
+                <Line type="monotone" dataKey="revenue" stroke={C.success} strokeWidth={2} dot={false} name="Revenue" />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
-        )}
-        <div className={isAdmin ? 'col-md-4' : 'col-md-4'}>
-          <div className="card p-3">
-            <div className="small fw-medium mb-2 text-muted">Order Status</div>
-            <ResponsiveContainer width="100%" height={200}>
+        </div>
+
+        <div style={chartCard}>
+          <CardTitle>Order Status</CardTitle>
+          <div style={topChartArea}>
+            <ResponsiveContainer width="100%" height={160}>
               <PieChart>
-                <Pie data={orderStatus} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={70} label>
-                  {orderStatus.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                <Pie data={orderStatus} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius="65%" label={({ count }) => count}>
+                  {orderStatus.map((entry, i) => (
+                    <Cell
+                      key={i}
+                      fill={STATUS_COLORS[entry.status] || '#2563EB'}
+                    />
+                  ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
-      </div>
 
-      {/* Charts Row 2 */}
-      <div className="row g-3 mb-3">
-        <div className="col-md-6">
-          <div className="card p-3">
-            <div className="small fw-medium mb-2 text-muted">Stock by Category</div>
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={stockByCategory}>
-                <XAxis dataKey="category" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Bar dataKey="total_stock" fill="#3d82f5" name="Stock" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-        <div className="col-md-6">
-          <div className="card p-3">
-            <div className="small fw-medium mb-2 text-muted">Top 5 Products by Sales</div>
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={topProducts} layout="vertical">
-                <XAxis type="number" tick={{ fontSize: 11 }} />
-                <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={70} />
-                <Tooltip />
-                <Bar dataKey="total_sold" fill="#22b566" name="Sold" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Orders + Low Stock */}
-      <div className="row g-3">
-        <div className="col-md-7">
-          <div className="card p-3">
-            <div className="small fw-medium mb-2 text-muted">Recent Orders</div>
-            <table className="table table-sm mb-0">
-              <thead className="table-light">
-                <tr><th>Customer</th><th>Product</th><th>Total</th><th>Status</th></tr>
-              </thead>
-              <tbody>
-                {recentOrders.length === 0 ? (
-                  <tr><td colSpan={4} className="text-center text-muted">No orders yet</td></tr>
-                ) : recentOrders.map(o => (
-                  <tr key={o.id}>
-                    <td>{o.user_name}</td>
-                    <td>{o.product_name}</td>
-                    <td>₹{parseFloat(o.total_price).toFixed(2)}</td>
-                    <td>{statusBadge(o.status)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div className="col-md-5">
-          <div className="card p-3">
-            <div className="small fw-medium mb-2 text-muted">Low Stock Products</div>
-            <table className="table table-sm mb-0">
-              <thead className="table-light">
-                <tr><th>Product</th><th>Stock</th><th>Status</th></tr>
+        <div style={{ ...card, display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, overflow: 'hidden' }}>
+          <CardTitle>Low Stock</CardTitle>
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  {['Product', 'Qty', 'Status'].map((h) => (
+                    <th
+                      key={h}
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        color: C.label,
+                        padding: '4px 6px',
+                        textAlign: 'left',
+                        borderBottom: `1px solid ${C.border}`,
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
               </thead>
               <tbody>
                 {lowStockProducts.length === 0 ? (
-                  <tr><td colSpan={3} className="text-center text-muted">All products in stock ✅</td></tr>
-                ) : lowStockProducts.map(p => (
-                  <tr key={p.id} className={p.stock === 0 ? 'table-danger' : 'table-warning'}>
-                    <td>{p.name}</td>
-                    <td>{p.stock}</td>
-                    <td><span className={`badge bg-${p.stock === 0 ? 'danger' : 'warning'}`}>
-                      {p.stock === 0 ? 'Out of Stock' : 'Low Stock'}
-                    </span></td>
+                  <tr>
+                    <td colSpan={3} style={{ fontSize: 12, color: C.muted, padding: '12px 6px', textAlign: 'center' }}>
+                      All in stock
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  lowStockProducts.slice(0, 4).map((p) => (
+                    <tr key={p.id} style={{ height: 32 }}>
+                      <td style={{ fontSize: 12, padding: '3px 6px', color: C.text, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {p.name}
+                      </td>
+                      <td style={{ fontSize: 12, padding: '3px 6px', fontWeight: 700, color: p.stock === 0 ? C.danger : C.warning }}>
+                        {p.stock}
+                      </td>
+                      <td style={{ padding: '3px 6px' }}>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            padding: '3px 8px',
+                            borderRadius: 20,
+                            background: p.stock === 0 ? '#FFF5F5' : '#FFFBEB',
+                            color: p.stock === 0 ? C.danger : C.warning,
+                          }}
+                        >
+                          {p.stock === 0 ? 'Out' : 'Low'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '26% 26% 28% 16%', gap: 8, flex: '0 0 34%', minHeight: 0, minWidth: 0, overflow: 'hidden' }}>
+        <div style={chartCard}>
+          <CardTitle>Stock by Category</CardTitle>
+          <div style={bottomChartArea}>
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={stockByCategory} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                <XAxis dataKey="category" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                <Bar dataKey="total_stock" name="Stock" radius={[4, 4, 0, 0]}>
+                  {stockByCategory.map((entry, index) => (
+                    <Cell
+                      key={`stock-cell-${index}`}
+                      fill={entry.total_stock <= 5 ? C.danger : C.primary}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div style={chartCard}>
+          <CardTitle>Top 5 Products by Sales</CardTitle>
+          <div style={bottomChartArea}>
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={topProducts} layout="vertical" margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <XAxis type="number" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={78} />
+                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                <Bar dataKey="total_sold" fill={C.success} name="Sold" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div style={{ ...card, display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, overflow: 'hidden' }}>
+          <CardTitle>Recent Orders</CardTitle>
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  {['Customer', 'Product', 'Total', 'Status'].map((h) => (
+                    <th
+                      key={h}
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        color: C.label,
+                        padding: '4px 6px',
+                        textAlign: 'left',
+                        borderBottom: `1px solid ${C.border}`,
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {recentOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} style={{ fontSize: 12, color: C.muted, padding: '12px 6px', textAlign: 'center' }}>
+                      No orders yet
+                    </td>
+                  </tr>
+                ) : (
+                  recentOrders.map((o) => (
+                    <tr key={o.id} style={{ height: 32 }}>
+                      <td style={{ fontSize: 12, padding: '3px 6px', color: C.text, maxWidth: 70, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {o.user_name}
+                      </td>
+                      <td style={{ fontSize: 12, padding: '3px 6px', color: C.muted, maxWidth: 70, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {o.product_name}
+                      </td>
+                      <td style={{ fontSize: 12, padding: '3px 6px', color: C.text, whiteSpace: 'nowrap' }}>
+                        Rs. {parseFloat(o.total_price).toFixed(0)}
+                      </td>
+                      <td style={{ padding: '3px 6px' }}>
+                        <StatusBadge status={o.status} />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div
+          style={{
+            ...card,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            justifyContent: 'center',
+            alignItems: 'flex-start',
+            minHeight: 0,
+            minWidth: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <CardTitle>Quick Summary</CardTitle>
+          {[
+            { label: 'Placed', count: orderStatus.find((o) => o.status === 'placed')?.count || 0, color: C.warning },
+            { label: 'Received', count: orderStatus.find((o) => o.status === 'received')?.count || 0, color: C.success },
+            { label: 'Cancelled', count: orderStatus.find((o) => o.status === 'cancelled')?.count || 0, color: C.danger },
+          ].map(({ label, count, color }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
+                <span style={{ fontSize: 13, color: C.muted }}>{label}</span>
+              </div>
+              <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{count}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>

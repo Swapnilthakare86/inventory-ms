@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FiCheck, FiDownload, FiX } from 'react-icons/fi';
 import API from '../../api/axios';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../../components/ConfirmModal';
@@ -7,311 +8,198 @@ import SkeletonTable from '../../components/SkeletonTable';
 
 const PER_PAGE = 10;
 
-const STATUS_OPTIONS = [
-  ['all', 'All'],
-  ['placed', 'Placed'],
-  ['received', 'Received'],
-  ['cancelled', 'Cancelled'],
-];
+const STATUS_OPTIONS = [['all','All'],['placed','Placed'],['received','Received'],['cancelled','Cancelled']];
+const DATE_OPTIONS   = [['all','All Time'],['today','Today'],['week','This Week'],['month','This Month']];
 
-const DATE_OPTIONS = [
-  ['all', 'All Time'],
-  ['today', 'Today'],
-  ['week', 'This Week'],
-  ['month', 'This Month'],
-];
-
-const formatCurrency = (value) => `Rs. ${parseFloat(value).toFixed(2)}`;
-
-const escapeCsvValue = (value) => {
-  const text = String(value ?? '');
-  if (text.includes('"') || text.includes(',') || text.includes('\n')) {
-    return `"${text.replace(/"/g, '""')}"`;
-  }
-  return text;
+const statusClass = (s) => {
+  if (s === 'placed')    return { color: 'var(--warning)', bg: 'var(--warning-soft)' };
+  if (s === 'received')  return { color: 'var(--success)', bg: 'var(--success-soft)' };
+  if (s === 'cancelled') return { color: 'var(--danger)',  bg: 'var(--danger-soft)'  };
+  return { color: 'var(--muted)', bg: '#f1f5f9' };
 };
 
-const filterOrdersByDate = (list, dateFilter) => {
+const formatCurrency = (v) => `Rs. ${parseFloat(v).toFixed(2)}`;
+
+const escapeCsvValue = (v) => {
+  const t = String(v ?? '');
+  return (t.includes('"') || t.includes(',') || t.includes('\n')) ? `"${t.replace(/"/g,'""')}"` : t;
+};
+
+const filterByDate = (list, df) => {
   const now = new Date();
-
-  if (dateFilter === 'today') {
-    return list.filter((order) => new Date(order.order_date).toDateString() === now.toDateString());
-  }
-
-  if (dateFilter === 'week') {
-    const weekStart = new Date(now.getTime() - 7 * 86400000);
-    return list.filter((order) => new Date(order.order_date) >= weekStart);
-  }
-
-  if (dateFilter === 'month') {
-    const monthStart = new Date(now.getTime() - 30 * 86400000);
-    return list.filter((order) => new Date(order.order_date) >= monthStart);
-  }
-
+  if (df === 'today') return list.filter(o => new Date(o.order_date).toDateString() === now.toDateString());
+  if (df === 'week')  return list.filter(o => new Date(o.order_date) >= new Date(now - 7*86400000));
+  if (df === 'month') return list.filter(o => new Date(o.order_date) >= new Date(now - 30*86400000));
   return list;
 };
 
 export default function SharedOrders() {
-  const [orders, setOrders] = useState([]);
-  const [filter, setFilter] = useState('all');
+  const [orders, setOrders]         = useState([]);
+  const [filter, setFilter]         = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
-  const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
-  const [page, setPage] = useState(1);
-  const [confirm, setConfirm] = useState({ show: false, id: null, status: '' });
+  const [loading, setLoading]       = useState(true);
+  const [exporting, setExporting]   = useState(false);
+  const [page, setPage]             = useState(1);
+  const [confirm, setConfirm]       = useState({ show: false, id: null, status: '' });
   const [detailOrder, setDetailOrder] = useState(null);
 
   const fetchOrders = async () => {
     setLoading(true);
-    try {
-      const response = await API.get('/orders');
-      setOrders(response.data);
-    } finally {
-      setLoading(false);
-    }
+    try { const r = await API.get('/orders'); setOrders(r.data); }
+    finally { setLoading(false); }
   };
-
-  useEffect(() => {
-    fetchOrders();
-  }, []);
+  useEffect(() => { fetchOrders(); }, []);
 
   const updateStatus = async () => {
     try {
       await API.patch(`/orders/${confirm.id}/status`, { status: confirm.status });
       toast.success(`Order marked as ${confirm.status}.`);
       fetchOrders();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Error');
-    } finally {
-      setConfirm({ show: false, id: null, status: '' });
-    }
+    } catch (err) { toast.error(err.response?.data?.message || 'Error'); }
+    finally { setConfirm({ show: false, id: null, status: '' }); }
   };
 
-  const statusBadge = (status) => {
-    const map = { placed: 'warning', received: 'success', cancelled: 'danger' };
-    return <span className={`badge bg-${map[status] || 'secondary'}`}>{status}</span>;
-  };
-
-  const statusFiltered =
-    filter === 'all' ? orders : orders.filter((order) => order.status === filter);
-  const filtered = filterOrdersByDate(statusFiltered, dateFilter);
+  const dateScopedOrders = filterByDate(orders, dateFilter);
+  const filtered  = filter === 'all' ? dateScopedOrders : dateScopedOrders.filter(o => o.status === filter);
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
-
-  const countOf = (status) => orders.filter((order) => order.status === status).length;
+  const countOf   = (s) => dateScopedOrders.filter(o => o.status === s).length;
+  const revenue   = dateScopedOrders.filter(o => o.status !== 'cancelled').reduce((a, o) => a + parseFloat(o.total_price || 0), 0);
+  const activeDateLabel = DATE_OPTIONS.find(([v]) => v === dateFilter)?.[1] || 'All Time';
 
   const handleExport = async () => {
-    if (filtered.length === 0) {
-      toast.error('No orders available for the selected filters.');
-      return;
-    }
-
+    if (filtered.length === 0) { toast.error('No orders available.'); return; }
     setExporting(true);
-
     try {
       const rows = [
-        [
-          'Order ID',
-          'Customer',
-          'Address',
-          'Product',
-          'Category',
-          'Quantity',
-          'Total',
-          'Order Date',
-          'Status',
-        ],
-        ...filtered.map((order) => [
-          order.id,
-          order.user_name,
-          order.address,
-          order.product_name,
-          order.category_name,
-          order.quantity,
-          parseFloat(order.total_price).toFixed(2),
-          new Date(order.order_date).toLocaleString(),
-          order.status,
-        ]),
+        ['Order ID','Customer','Address','Product','Category','Quantity','Total','Order Date','Status'],
+        ...filtered.map(o => [o.id, o.user_name, o.address, o.product_name, o.category_name, o.quantity, parseFloat(o.total_price).toFixed(2), new Date(o.order_date).toLocaleString(), o.status]),
       ];
-
-      const csvContent = rows
-        .map((row) => row.map((value) => escapeCsvValue(value)).join(','))
-        .join('\n');
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      const stamp = new Date().toISOString().slice(0, 10);
-
-      link.href = url;
-      link.download = `orders-${filter}-${dateFilter}-${stamp}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
+      const csv  = rows.map(r => r.map(escapeCsvValue).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = `orders-${filter}-${dateFilter}-${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
       toast.success('Orders CSV downloaded.');
-    } catch {
-      toast.error('Failed to export orders.');
-    } finally {
-      setExporting(false);
-    }
+    } catch { toast.error('Failed to export orders.'); }
+    finally { setExporting(false); }
   };
 
   return (
-    <div className="p-4">
-      <h4 className="fw-semibold mb-4">Orders</h4>
+    <div className="page">
+      <div className="page__header">
+        <div>
+          <h3 className="page__title">Orders</h3>
+          <p className="page__subtitle">Review order activity, filter by status and date range, and update fulfillment states.</p>
+        </div>
+        <button className="btn-secondary-custom" onClick={handleExport} disabled={exporting || loading || filtered.length === 0}>
+          <FiDownload size={16} />{exporting ? 'Exporting...' : 'Export CSV'}
+        </button>
+      </div>
 
-      <div className="mb-3 d-flex gap-2 flex-wrap align-items-center">
-        {STATUS_OPTIONS.map(([status, label]) => (
-          <button
-            key={status}
-            className={`btn btn-sm ${filter === status ? 'btn-primary' : 'btn-outline-secondary'}`}
-            onClick={() => {
-              setFilter(status);
-              setPage(1);
-            }}
-          >
-            {label}{' '}
-            {status !== 'all' && (
-              <span className="badge bg-white text-dark ms-1">{countOf(status)}</span>
-            )}
-          </button>
-        ))}
-
-        <div className="ms-auto d-flex gap-2 flex-wrap justify-content-end">
-          {DATE_OPTIONS.map(([value, label]) => (
-            <button
-              key={value}
-              className={`btn btn-sm ${dateFilter === value ? 'btn-dark' : 'btn-outline-secondary'}`}
-              onClick={() => {
-                setDateFilter(value);
-                setPage(1);
-              }}
-            >
-              {label}
-            </button>
-          ))}
-
-          <button
-            className="btn btn-sm btn-outline-primary"
-            onClick={handleExport}
-            disabled={exporting || loading || filtered.length === 0}
-          >
-            {exporting ? 'Exporting...' : 'Export Orders CSV'}
-          </button>
+      <div className="filter-bar">
+        <div className="d-flex flex-wrap gap-2 justify-content-between align-items-center">
+          <div className="d-flex flex-wrap gap-2">
+            {STATUS_OPTIONS.map(([s, label]) => (
+              <button key={s} className={`filter-btn filter-btn--${filter === s ? 'active' : 'inactive'}`}
+                onClick={() => { setFilter(s); setPage(1); }}>
+                {label}
+                {s !== 'all' && (
+                  <span className={`filter-count filter-count--${filter === s ? 'active' : 'inactive'}`}>{countOf(s)}</span>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="d-flex flex-wrap gap-2">
+            {DATE_OPTIONS.map(([v, label]) => (
+              <button key={v} className={`filter-btn filter-btn--${dateFilter === v ? 'dark-active' : 'dark-inactive'}`}
+                onClick={() => { setDateFilter(v); setPage(1); }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="revenue-strip">
+          <span style={{ color: 'var(--muted)', fontSize: 13, marginRight: 8 }}>
+            Revenue for <strong style={{ color: 'var(--text)' }}>{activeDateLabel}</strong>
+          </span>
+          <span className="revenue-badge">{formatCurrency(revenue)}</span>
         </div>
       </div>
 
-      <div className="card">
+      <div className="table-card">
         <div className="table-responsive">
-          <table className="table table-hover mb-0">
-            <thead className="table-light">
-              <tr>
-                <th>S NO</th>
-                <th>Customer</th>
-                <th>Address</th>
-                <th>Product</th>
-                <th>Category</th>
-                <th>Qty</th>
-                <th>Total</th>
-                <th>Date</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
+          <table className="table align-middle mb-0">
+            <thead>
+              <tr>{['S NO','Customer','Address','Product','Category','Qty','Total','Date','Status','Actions'].map(l => <th key={l}>{l}</th>)}</tr>
             </thead>
-            {loading ? (
-              <SkeletonTable cols={10} rows={5} />
-            ) : (
+            {loading ? <SkeletonTable cols={10} rows={5} /> : (
               <tbody>
                 {paginated.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="text-center text-muted py-4">
-                      No orders found
-                    </td>
-                  </tr>
-                ) : (
-                  paginated.map((order, index) => (
-                    <tr
-                      key={order.id}
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => setDetailOrder(order)}
-                    >
-                      <td>{(page - 1) * PER_PAGE + index + 1}</td>
-                      <td>{order.user_name}</td>
-                      <td>{order.address}</td>
+                  <tr><td colSpan={10} className="table-empty">No orders found for the selected filters.</td></tr>
+                ) : paginated.map((order, index) => {
+                  const s = statusClass(order.status);
+                  return (
+                    <tr key={order.id} onClick={() => setDetailOrder(order)}
+                      style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
+                      <td className="td-bold">{(page - 1) * PER_PAGE + index + 1}</td>
+                      <td className="td-bold">{order.user_name}</td>
+                      <td className="td-muted">{order.address}</td>
                       <td>{order.product_name}</td>
                       <td>{order.category_name}</td>
-                      <td>{order.quantity}</td>
-                      <td>{formatCurrency(order.total_price)}</td>
+                      <td className="td-bold">{order.quantity}</td>
+                      <td className="td-bold">{formatCurrency(order.total_price)}</td>
                       <td>{new Date(order.order_date).toLocaleDateString()}</td>
-                      <td>{statusBadge(order.status)}</td>
-                      <td onClick={(e) => e.stopPropagation()}>
+                      <td>
+                        <span className="badge-status" style={{ color: s.color, background: s.bg }}>{order.status}</span>
+                      </td>
+                      <td onClick={e => e.stopPropagation()}>
                         <div className="d-flex gap-2">
                           {order.status === 'placed' && (
-                            <button
-                              className="btn btn-sm btn-success"
-                              onClick={() =>
-                                setConfirm({ show: true, id: order.id, status: 'received' })
-                              }
-                            >
-                              Received
+                            <button type="button" className="action-btn" style={{ color: 'var(--success)', background: '#edf9f2', borderColor: '#cfe9da' }}
+                              onClick={() => setConfirm({ show: true, id: order.id, status: 'received' })}>
+                              <FiCheck size={15} />
                             </button>
                           )}
                           {order.status !== 'cancelled' && (
-                            <button
-                              className="btn btn-sm btn-danger"
-                              onClick={() =>
-                                setConfirm({ show: true, id: order.id, status: 'cancelled' })
-                              }
-                            >
-                              Cancel
+                            <button type="button" className="action-btn action-btn--delete"
+                              onClick={() => setConfirm({ show: true, id: order.id, status: 'cancelled' })}>
+                              <FiX size={15} />
                             </button>
                           )}
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
+                  );
+                })}
               </tbody>
             )}
           </table>
         </div>
-        <div className="px-3 pb-2">
+        <div className="table-card__footer">
           <Pagination total={filtered.length} page={page} perPage={PER_PAGE} onChange={setPage} />
         </div>
       </div>
 
       {detailOrder && (
-        <div
-          className="modal d-block"
-          style={{ background: 'rgba(0,0,0,0.4)' }}
-          onClick={() => setDetailOrder(null)}
-        >
-          <div
-            className="modal-dialog modal-dialog-centered"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-content p-4">
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <h5 className="fw-semibold mb-0">Order Details</h5>
-                <button className="btn-close" onClick={() => setDetailOrder(null)} />
-              </div>
-              {[
-                ['Order ID', `#${detailOrder.id}`],
-                ['Customer', detailOrder.user_name],
-                ['Address', detailOrder.address],
-                ['Product', detailOrder.product_name],
-                ['Category', detailOrder.category_name],
-                ['Quantity', detailOrder.quantity],
-                ['Total', formatCurrency(detailOrder.total_price)],
-                ['Date', new Date(detailOrder.order_date).toLocaleString()],
-                ['Status', detailOrder.status],
-              ].map(([label, value]) => (
-                <div key={label} className="d-flex justify-content-between py-1 border-bottom small">
-                  <span className="text-muted">{label}</span>
-                  <span className="fw-medium">{value}</span>
+        <div className="modal d-block modal-overlay" onClick={() => setDetailOrder(null)}>
+          <div className="modal-dialog modal-dialog-centered" onClick={e => e.stopPropagation()}>
+            <div className="modal-card">
+              <div className="modal-card__body">
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <div>
+                    <h5 className="modal-card__title">Order Details</h5>
+                    <p className="modal-card__subtitle">Review the selected order information.</p>
+                  </div>
+                  <button className="btn-close" onClick={() => setDetailOrder(null)} />
                 </div>
-              ))}
+                {[['Order ID',`#${detailOrder.id}`],['Customer',detailOrder.user_name],['Address',detailOrder.address],['Product',detailOrder.product_name],['Category',detailOrder.category_name],['Quantity',detailOrder.quantity],['Total',formatCurrency(detailOrder.total_price)],['Date',new Date(detailOrder.order_date).toLocaleString()],['Status',detailOrder.status]].map(([label, value]) => (
+                  <div key={label} className="detail-row">
+                    <span className="detail-row__label">{label}</span>
+                    <span className="detail-row__value">{value}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

@@ -1,128 +1,253 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import API from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
-import toast from 'react-hot-toast';
+import { validatePassword, passwordStrength } from '../../utils/validators';
+import {
+  HiOutlineUserCircle, HiOutlineEnvelope, HiOutlineLockClosed,
+  HiOutlineUser, HiOutlineMapPin, HiOutlineShieldCheck,
+  HiOutlineEye, HiOutlineEyeSlash, HiOutlineCheckCircle,
+  HiOutlineXCircle, HiOutlineArrowUpTray, HiOutlineKey
+} from 'react-icons/hi2';
 
-export default function SharedProfile() {
-  const { user } = useAuth();
-  const [form, setForm] = useState({ name: user?.name || '', address: user?.address || '' });
-  const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-  const [pwErrors, setPwErrors] = useState({});
-  const [loading, setLoading] = useState(false);
+const getInitials = (name = '') => {
+  const parts = name.trim().split(' ').filter(Boolean);
+  if (!parts.length) return '?';
+  if (parts.length === 1) return parts[0][0].toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+const roleBadge = {
+  admin: { bg: '#DBEAFE', color: '#1D4ED8' },
+  staff: { bg: '#EDE9FE', color: '#6D28D9' },
+  user:  { bg: '#DCFCE7', color: '#15803D' },
+};
+
+const strengthColors = { Weak: '#DC2626', Medium: '#D97706', Strong: '#16A34A' };
+const strengthLevels = { Weak: 1, Medium: 2, Strong: 3 };
+
+function InlineAlert({ type, message, onDismiss }) {
+  return (
+    <div className={`profile-inline-alert profile-inline-alert--${type}`}>
+      {type === 'success' ? <HiOutlineCheckCircle size={16} /> : <HiOutlineXCircle size={16} />}
+      <span style={{ flex: 1 }}>{message}</span>
+      <button onClick={onDismiss} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, lineHeight: 1, color: 'inherit' }}>×</button>
+    </div>
+  );
+}
+
+function PwField({ label, icon: Icon, value, onChange, error, show, onToggle, extra }) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <label className="profile-label"><Icon size={14} />{label}</label>
+      <div style={{ position: 'relative' }}>
+        <input type={show ? 'text' : 'password'} value={value} onChange={onChange}
+          className={`profile-input${error ? ' profile-input--error' : ''}`}
+          style={{ paddingRight: 40 }} />
+        <button type="button" className="profile-pw-toggle" onClick={onToggle}>
+          {show ? <HiOutlineEyeSlash size={16} /> : <HiOutlineEye size={16} />}
+        </button>
+      </div>
+      {error && <div className="profile-error-text">{error}</div>}
+      {extra}
+    </div>
+  );
+}
+
+function StrengthBar({ password }) {
+  const s = passwordStrength(password);
+  if (!password || !s) return null;
+  const filled = strengthLevels[s.label];
+  const color  = strengthColors[s.label];
+  return (
+    <div style={{ marginTop: 6 }}>
+      <div className="profile-strength-bar">
+        {[1,2,3].map(i => (
+          <div key={i} className="profile-strength-segment"
+            style={{ background: i <= filled ? color : '#E2E8F0' }} />
+        ))}
+      </div>
+      <div style={{ fontSize: 11, color, marginTop: 3, fontWeight: 600 }}>{s.label} password</div>
+    </div>
+  );
+}
+
+export default function Profile() {
+  const { user, logout } = useAuth();
+  const [form, setForm]           = useState({ name: user?.name || '', address: user?.address || '' });
+  const [profAlert, setProfAlert] = useState(null);
+  const [profLoading, setProfLoading] = useState(false);
+  const [nameError, setNameError] = useState('');
+  const [pw, setPw]               = useState({ current: '', newPw: '', confirm: '' });
+  const [pwShow, setPwShow]       = useState({ current: false, newPw: false, confirm: false });
+  const [pwErrors, setPwErrors]   = useState({});
+  const [pwAlert, setPwAlert]     = useState(null);
   const [pwLoading, setPwLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
+  useEffect(() => {
+    if (!profAlert) return;
+    const t = setTimeout(() => setProfAlert(null), 3000);
+    return () => clearTimeout(t);
+  }, [profAlert]);
+
+  useEffect(() => {
+    if (!pwAlert) return;
+    const t = setTimeout(() => { setPwAlert(null); if (pwAlert.type === 'success') logout(); }, 2000);
+    return () => clearTimeout(t);
+  }, [pwAlert, logout]);
+
+  const handleProfile = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    if (!form.name.trim() || form.name.trim().length < 2) { setNameError('Name must be at least 2 characters'); return; }
+    if (/\d/.test(form.name)) { setNameError('Name must not contain numbers'); return; }
+    setNameError(''); setProfLoading(true);
     try {
-      await API.put('/users/profile', form);
-      toast.success('Profile updated successfully.');
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Error updating profile.');
-    } finally { setLoading(false); }
+      await API.put('/users/profile', { name: form.name.trim(), address: form.address.trim() });
+      setProfAlert({ type: 'success', message: 'Profile updated successfully.' });
+    } catch (err) { setProfAlert({ type: 'error', message: err.response?.data?.message || 'Error updating profile.' }); }
+    finally { setProfLoading(false); }
   };
 
-  const validatePw = () => {
+  const handlePassword = async (e) => {
+    e.preventDefault();
     const errors = {};
-    if (!pwForm.currentPassword) errors.currentPassword = 'Current password is required';
-    if (!pwForm.newPassword) errors.newPassword = 'New password is required';
-    else if (pwForm.newPassword.length < 8) errors.newPassword = 'Min 8 characters';
-    else if (!/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/.test(pwForm.newPassword))
-      errors.newPassword = 'Must include uppercase, number & special character';
-    if (!pwForm.confirmPassword) errors.confirmPassword = 'Please confirm new password';
-    else if (pwForm.newPassword !== pwForm.confirmPassword) errors.confirmPassword = 'Passwords do not match';
-    return errors;
+    if (!pw.current) errors.current = 'Current password is required';
+    const newErr = validatePassword(pw.newPw);
+    if (newErr) errors.newPw = newErr;
+    if (!pw.confirm) errors.confirm = 'Please confirm new password';
+    else if (pw.newPw !== pw.confirm) errors.confirm = 'Passwords do not match';
+    if (Object.keys(errors).length > 0) { setPwErrors(errors); return; }
+    setPwErrors({}); setPwLoading(true);
+    try {
+      await API.put('/users/change-password', { currentPassword: pw.current, newPassword: pw.newPw });
+      setPwAlert({ type: 'success', message: 'Password changed successfully. Logging out in 2s...' });
+      setPw({ current: '', newPw: '', confirm: '' });
+    } catch (err) { setPwAlert({ type: 'error', message: err.response?.data?.message || 'Error changing password.' }); }
+    finally { setPwLoading(false); }
   };
 
-  const handlePasswordChange = async (e) => {
-    e.preventDefault();
-    const errors = validatePw();
-    if (Object.keys(errors).length > 0) { setPwErrors(errors); return; }
-    setPwErrors({});
-    setPwLoading(true);
-    try {
-      await API.put('/users/change-password', { currentPassword: pwForm.currentPassword, newPassword: pwForm.newPassword });
-      toast.success('Password changed successfully.');
-      setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Error changing password.');
-    } finally { setPwLoading(false); }
-  };
+  const badge = roleBadge[user?.role] || roleBadge.user;
+  const confirmMatch    = pw.confirm && pw.newPw === pw.confirm;
+  const confirmMismatch = pw.confirm && pw.newPw !== pw.confirm;
 
   return (
-    <div className="p-4">
-      <h4 className="fw-semibold mb-4">My Profile</h4>
-      <div className="row g-4">
+    <div className="profile-page">
+      <div className="profile-page__inner">
+        <div style={{ marginBottom: 20 }}>
+          <div className="profile-page__title">My Profile</div>
+          <div className="profile-page__subtitle">Manage your account information and security</div>
+        </div>
 
-        {/* Profile Info */}
-        <div className="col-md-6">
-          <div className="card p-4">
-            <h6 className="fw-semibold mb-3">Profile Information</h6>
-            <div className="mb-3">
-              <label className="form-label small fw-medium">Email</label>
-              <input className="form-control" value={user?.email || ''} disabled />
+        {/* Header Card */}
+        <div className="profile-header-card">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, minWidth: 120 }}>
+              <div className="profile-avatar">{getInitials(user?.name)}</div>
+              <div className="profile-name">{user?.name}</div>
+              <div className="profile-email">{user?.email}</div>
+              <span className="profile-role-badge" style={{ background: badge.bg, color: badge.color }}>{user?.role}</span>
             </div>
-            <div className="mb-3">
-              <label className="form-label small fw-medium">Role</label>
-              <input className="form-control text-capitalize" value={user?.role || ''} disabled />
+            <div style={{ display: 'flex', gap: 12, flex: 1, flexWrap: 'wrap' }}>
+              {[
+                { icon: HiOutlineShieldCheck, label: 'ROLE',   value: user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1) },
+                { icon: HiOutlineCheckCircle, label: 'STATUS', value: 'Active', dot: true },
+              ].map(({ icon: Icon, label, value, dot }) => (
+                <div key={label} className="profile-stat-box">
+                  <div className="profile-stat-box__label"><Icon size={14} />{label}</div>
+                  <div className="profile-stat-box__value">
+                    {dot && <div className="profile-active-dot" />}
+                    {value}
+                  </div>
+                </div>
+              ))}
             </div>
-            {user?.created_at && (
-              <div className="mb-3">
-                <label className="form-label small fw-medium">Member Since</label>
-                <input className="form-control" value={new Date(user.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })} disabled />
-              </div>
-            )}
-            <form onSubmit={handleSubmit}>
-              <div className="mb-3">
-                <label className="form-label small fw-medium">Name</label>
-                <input className="form-control" required value={form.name}
-                  onChange={e => setForm({ ...form, name: e.target.value })} />
-              </div>
-              <div className="mb-3">
-                <label className="form-label small fw-medium">Address</label>
-                <input className="form-control" value={form.address}
-                  onChange={e => setForm({ ...form, address: e.target.value })} />
-              </div>
-              <button className="btn btn-primary w-100" type="submit" disabled={loading}>
-                {loading ? <><span className="spinner-border spinner-border-sm me-2" />Saving...</> : 'Update Profile'}
-              </button>
-            </form>
           </div>
         </div>
 
-        {/* Change Password */}
-        <div className="col-md-6">
-          <div className="card p-4">
-            <h6 className="fw-semibold mb-3">Change Password</h6>
-            <form onSubmit={handlePasswordChange} noValidate>
-              <div className="mb-3">
-                <label className="form-label small fw-medium">Current Password</label>
-                <input type="password" className={`form-control ${pwErrors.currentPassword ? 'is-invalid' : ''}`}
-                  value={pwForm.currentPassword}
-                  onChange={e => { setPwForm({ ...pwForm, currentPassword: e.target.value }); setPwErrors({ ...pwErrors, currentPassword: '' }); }} />
-                {pwErrors.currentPassword && <div className="invalid-feedback">{pwErrors.currentPassword}</div>}
+        {/* Bottom cards */}
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+
+          {/* Profile Info */}
+          <div className="profile-info-card">
+            <div className="profile-card__header">
+              <HiOutlineUserCircle size={20} color="#2563EB" />
+              <span className="profile-card__title">Profile Information</span>
+            </div>
+            <div className="profile-divider" />
+            {profAlert && <InlineAlert type={profAlert.type} message={profAlert.message} onDismiss={() => setProfAlert(null)} />}
+            <form onSubmit={handleProfile}>
+              <div style={{ marginBottom: 16 }}>
+                <label className="profile-label"><HiOutlineEnvelope size={14} />Email</label>
+                <div style={{ position: 'relative' }}>
+                  <input value={user?.email || ''} readOnly className="profile-input profile-input--readonly" />
+                  <HiOutlineLockClosed size={14} color="#94A3B8" className="profile-input-lock" />
+                </div>
               </div>
-              <div className="mb-3">
-                <label className="form-label small fw-medium">New Password</label>
-                <input type="password" className={`form-control ${pwErrors.newPassword ? 'is-invalid' : ''}`}
-                  value={pwForm.newPassword}
-                  onChange={e => { setPwForm({ ...pwForm, newPassword: e.target.value }); setPwErrors({ ...pwErrors, newPassword: '' }); }} />
-                {pwErrors.newPassword && <div className="invalid-feedback">{pwErrors.newPassword}</div>}
+              <div style={{ marginBottom: 16 }}>
+                <label className="profile-label"><HiOutlineShieldCheck size={14} />Role</label>
+                <span className="profile-role-badge" style={{ background: badge.bg, color: badge.color, padding: '6px 16px' }}>{user?.role}</span>
               </div>
-              <div className="mb-3">
-                <label className="form-label small fw-medium">Confirm New Password</label>
-                <input type="password" className={`form-control ${pwErrors.confirmPassword ? 'is-invalid' : ''}`}
-                  value={pwForm.confirmPassword}
-                  onChange={e => { setPwForm({ ...pwForm, confirmPassword: e.target.value }); setPwErrors({ ...pwErrors, confirmPassword: '' }); }} />
-                {pwErrors.confirmPassword && <div className="invalid-feedback">{pwErrors.confirmPassword}</div>}
+              <div style={{ marginBottom: 16 }}>
+                <label className="profile-label"><HiOutlineUser size={14} />Name</label>
+                <input value={form.name}
+                  onChange={e => { setForm({ ...form, name: e.target.value }); setNameError(''); }}
+                  className={`profile-input${nameError ? ' profile-input--error' : ''}`}
+                  onFocus={e => e.target.style.borderColor = '#2563EB'}
+                  onBlur={e => e.target.style.borderColor = nameError ? '#DC2626' : '#D1D5DB'} />
+                {nameError && <div className="profile-error-text">{nameError}</div>}
               </div>
-              <button className="btn btn-warning w-100" type="submit" disabled={pwLoading}>
-                {pwLoading ? <><span className="spinner-border spinner-border-sm me-2" />Changing...</> : 'Change Password'}
-              </button>
+              <div style={{ marginBottom: 20 }}>
+                <label className="profile-label"><HiOutlineMapPin size={14} />Address</label>
+                <input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })}
+                  placeholder="Enter your address" className="profile-input"
+                  onFocus={e => e.target.style.borderColor = '#2563EB'}
+                  onBlur={e => e.target.style.borderColor = '#D1D5DB'} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button type="submit" disabled={profLoading} className="profile-submit-btn profile-submit-btn--profile">
+                  {profLoading
+                    ? <><span className="spinner-border spinner-border-sm" style={{ width: 14, height: 14, borderWidth: 2 }} />Updating...</>
+                    : <><HiOutlineArrowUpTray size={16} />Update Profile</>}
+                </button>
+              </div>
             </form>
           </div>
-        </div>
 
+          {/* Change Password */}
+          <div className="profile-pw-card">
+            <div className="profile-card__header">
+              <HiOutlineLockClosed size={20} color="#DC2626" />
+              <span className="profile-card__title">Change Password</span>
+            </div>
+            <div className="profile-divider" />
+            {pwAlert && <InlineAlert type={pwAlert.type} message={pwAlert.message} onDismiss={() => setPwAlert(null)} />}
+            <form onSubmit={handlePassword} noValidate>
+              <PwField label="Current Password" icon={HiOutlineLockClosed}
+                value={pw.current} onChange={e => { setPw({ ...pw, current: e.target.value }); setPwErrors({ ...pwErrors, current: '' }); }}
+                error={pwErrors.current} show={pwShow.current} onToggle={() => setPwShow(s => ({ ...s, current: !s.current }))} />
+              <PwField label="New Password" icon={HiOutlineLockClosed}
+                value={pw.newPw} onChange={e => { setPw({ ...pw, newPw: e.target.value }); setPwErrors({ ...pwErrors, newPw: '' }); }}
+                error={pwErrors.newPw} show={pwShow.newPw} onToggle={() => setPwShow(s => ({ ...s, newPw: !s.newPw }))}
+                extra={<StrengthBar password={pw.newPw} />} />
+              <PwField label="Confirm New Password" icon={HiOutlineLockClosed}
+                value={pw.confirm} onChange={e => { setPw({ ...pw, confirm: e.target.value }); setPwErrors({ ...pwErrors, confirm: '' }); }}
+                error={pwErrors.confirm} show={pwShow.confirm} onToggle={() => setPwShow(s => ({ ...s, confirm: !s.confirm }))}
+                extra={pw.confirm ? (
+                  <div className="profile-match-text" style={{ color: confirmMatch ? '#16A34A' : '#DC2626' }}>
+                    {confirmMatch ? <HiOutlineCheckCircle size={13} /> : <HiOutlineXCircle size={13} />}
+                    {confirmMatch ? 'Passwords match' : 'Passwords do not match'}
+                  </div>
+                ) : null} />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                <button type="submit" disabled={pwLoading} className="profile-submit-btn profile-submit-btn--password">
+                  {pwLoading
+                    ? <><span className="spinner-border spinner-border-sm" style={{ width: 14, height: 14, borderWidth: 2 }} />Changing...</>
+                    : <><HiOutlineKey size={16} />Change Password</>}
+                </button>
+              </div>
+            </form>
+          </div>
+
+        </div>
       </div>
     </div>
   );

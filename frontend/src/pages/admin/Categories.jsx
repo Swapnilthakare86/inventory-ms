@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
+import { FiEdit2, FiPlus, FiSearch, FiTrash2 } from 'react-icons/fi';
+import toast from 'react-hot-toast';
 import API from '../../api/axios';
+import ConfirmModal from '../../components/ConfirmModal';
 
 const empty = { name: '', description: '' };
 
@@ -19,142 +22,127 @@ export default function AdminCategories() {
   const [form, setForm] = useState(empty);
   const [errors, setErrors] = useState({});
   const [editId, setEditId] = useState(null);
-  const [msg, setMsg] = useState({ text: '', type: 'info' });
   const [search, setSearch] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
+  const [showModal, setShowModal] = useState(false);
 
-  const fetchCategories = () => API.get('/categories').then(r => setCategories(r.data));
-  useEffect(() => { fetchCategories(); }, []);
+  const fetchCategories = async () => {
+    const response = await API.get('/categories');
+    setCategories(response.data);
+  };
 
-  const notify = (text, type = 'info') => { setMsg({ text, type }); setTimeout(() => setMsg({ text: '', type: 'info' }), 3000); };
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const resetForm = () => {
+    setForm(empty);
+    setErrors({});
+    setEditId(null);
+  };
+
+  const openAdd = () => {
+    resetForm();
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    resetForm();
+  };
 
   const handleChange = (field) => (e) => {
     setForm({ ...form, [field]: e.target.value });
     if (errors[field]) setErrors({ ...errors, [field]: '' });
   };
 
-  const handleEdit = (cat) => {
-    setEditId(cat.id);
-    setForm({ name: cat.name, description: cat.description || '' });
+  const handleEdit = (category) => {
+    setEditId(category.id);
+    setForm({ name: category.name, description: category.description || '' });
     setErrors({});
+    setShowModal(true);
   };
-
-  const handleCancel = () => { setEditId(null); setForm(empty); setErrors({}); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const validationErrors = validate(form);
-    if (Object.keys(validationErrors).length > 0) { setErrors(validationErrors); return; }
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    setSubmitting(true);
+
     try {
       if (editId) {
         await API.put(`/categories/${editId}`, form);
-        notify('Category updated successfully.', 'success');
+        toast.success('Category updated successfully.');
       } else {
         await API.post('/categories', form);
-        notify('Category created successfully.', 'success');
+        toast.success('Category created successfully.');
       }
-      setForm(empty);
-      setEditId(null);
-      setErrors({});
+
+      closeModal();
       fetchCategories();
     } catch (err) {
-      notify(err.response?.data?.message || 'Something went wrong.', 'danger');
+      toast.error(err.response?.data?.message || 'Something went wrong.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this category?')) return;
+  const handleDelete = async () => {
     try {
-      await API.delete(`/categories/${id}`);
-      notify('Category deleted.', 'success');
+      await API.delete(`/categories/${deleteId}`);
+      toast.success('Category deleted.');
       fetchCategories();
     } catch (err) {
-      notify(err.response?.data?.message || 'Error deleting category.', 'danger');
+      toast.error(err.response?.data?.message || 'Error deleting category.');
+    } finally {
+      setDeleteId(null);
     }
   };
 
-  const filtered = categories.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    (c.description || '').toLowerCase().includes(search.toLowerCase())
+  const filtered = categories.filter(
+    (category) =>
+      category.name.toLowerCase().includes(search.toLowerCase()) ||
+      (category.description || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
-    <div className="p-4">
-      <h4 className="fw-semibold mb-4">Categories</h4>
-
-      {msg.text && (
-        <div className={`alert alert-${msg.type} py-2 small`} role="alert">{msg.text}</div>
-      )}
-
-      {/* Form */}
-      <div className="card p-3 mb-4" style={{ maxWidth: 500 }}>
-        <h6 className="fw-medium mb-3">{editId ? 'Edit Category' : 'Add Category'}</h6>
-        <form onSubmit={handleSubmit} noValidate>
-          <div className="mb-2">
-            <label htmlFor="cat-name" className="form-label small fw-medium">Name</label>
-            <input
-              id="cat-name"
-              type="text"
-              className={`form-control ${errors.name ? 'is-invalid' : ''}`}
-              placeholder="Enter category name"
-              value={form.name}
-              onChange={handleChange('name')}
-            />
-            {errors.name && <div className="invalid-feedback">{errors.name}</div>}
-          </div>
-
-          <div className="mb-3">
-            <label htmlFor="cat-desc" className="form-label small fw-medium">
-              Description <span className="text-muted fw-normal">(optional)</span>
-            </label>
-            <textarea
-              id="cat-desc"
-              rows={2}
-              className={`form-control ${errors.description ? 'is-invalid' : ''}`}
-              placeholder="Enter category description"
-              value={form.description}
-              onChange={handleChange('description')}
-            />
-            <div className="d-flex justify-content-between">
-              {errors.description
-                ? <div className="invalid-feedback d-block">{errors.description}</div>
-                : <span />}
-            </div>
-          </div>
-
-          <div className="d-flex gap-2">
-            <button className="btn btn-primary" type="submit">{editId ? 'Update' : 'Add'}</button>
-            {editId && (
-              <button type="button" className="btn btn-secondary" onClick={handleCancel}>Cancel</button>
-            )}
-          </div>
-        </form>
+    <div className="page">
+      <div className="page__header">
+        <div>
+          <h3 className="page__title">Categories</h3>
+          <p className="page__subtitle">Organize product groups and keep category details clean and consistent.</p>
+        </div>
+        <button className="btn-primary-custom" onClick={openAdd}><FiPlus size={16} />Add Category</button>
       </div>
 
-      {/* Search */}
-      <div className="mb-3">
-        <input className="form-control" style={{ maxWidth: 300 }} placeholder="Search categories..."
-          value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="filter-bar">
+        <div className="search-input-wrap">
+          <FiSearch size={15} className="search-input-icon" />
+          <input className="search-input" placeholder="Search categories..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="card">
+      <div className="table-card">
         <div className="table-responsive">
-          <table className="table table-hover mb-0">
-            <thead className="table-light">
-              <tr><th>S NO</th><th>Name</th><th>Description</th><th>Actions</th></tr>
-            </thead>
+          <table className="table align-middle mb-0">
+            <thead><tr>{['S NO','Name','Description','Actions'].map(l => <th key={l}>{l}</th>)}</tr></thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={5} className="text-center text-muted py-3">No categories found</td></tr>
-              ) : filtered.map((cat, i) => (
-                <tr key={cat.id}>
-                  <td>{i + 1}</td>
-                  <td className="fw-medium">{cat.name}</td>
-                  <td className="text-muted small">{cat.description || '—'}</td>
+                <tr><td colSpan={4} className="table-empty">No categories found.</td></tr>
+              ) : filtered.map((category, index) => (
+                <tr key={category.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                  <td className="td-bold">{index + 1}</td>
+                  <td className="td-bold">{category.name}</td>
+                  <td className="td-muted">{category.description || 'No description'}</td>
                   <td>
-                    <div className="d-flex gap-1">
-                      <button className="btn btn-sm btn-warning" onClick={() => handleEdit(cat)}>Edit</button>
-                      <button className="btn btn-sm btn-danger" onClick={() => handleDelete(cat.id)}>Delete</button>
+                    <div className="d-flex gap-2">
+                      <button type="button" onClick={() => handleEdit(category)} className="action-btn action-btn--edit"><FiEdit2 size={15} /></button>
+                      <button type="button" onClick={() => setDeleteId(category.id)} className="action-btn action-btn--delete"><FiTrash2 size={15} /></button>
                     </div>
                   </td>
                 </tr>
@@ -163,6 +151,44 @@ export default function AdminCategories() {
           </table>
         </div>
       </div>
+
+      {showModal && (
+        <div className="modal d-block modal-overlay" onClick={closeModal}>
+          <div className="modal-dialog modal-dialog-centered" onClick={e => e.stopPropagation()}>
+            <div className="modal-card">
+              <div className="modal-card__body">
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <div>
+                    <h5 className="modal-card__title">{editId ? 'Edit Category' : 'Add Category'}</h5>
+                    <p className="modal-card__subtitle">{editId ? 'Update the category information below.' : 'Create a category for grouping products.'}</p>
+                  </div>
+                  <button className="btn-close" onClick={closeModal} />
+                </div>
+                <form onSubmit={handleSubmit} noValidate>
+                  <div className="mb-3">
+                    <label htmlFor="cat-name" className="modal-label">Name</label>
+                    <input id="cat-name" type="text" className={`form-control modal-input ${errors.name ? 'is-invalid' : ''}`} placeholder="Enter category name" value={form.name} onChange={handleChange('name')} />
+                    {errors.name && <div className="invalid-feedback">{errors.name}</div>}
+                  </div>
+                  <div className="mb-4">
+                    <label htmlFor="cat-desc" className="modal-label">Description <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(optional)</span></label>
+                    <textarea id="cat-desc" rows={3} className={`form-control modal-textarea ${errors.description ? 'is-invalid' : ''}`} placeholder="Enter category description" value={form.description} onChange={handleChange('description')} />
+                    {errors.description && <div className="invalid-feedback d-block">{errors.description}</div>}
+                  </div>
+                  <div className="d-flex gap-2">
+                    <button className="btn btn-primary-custom flex-grow-1" type="submit" disabled={submitting}>
+                      {submitting ? (editId ? 'Updating...' : 'Adding...') : editId ? 'Update Category' : 'Add Category'}
+                    </button>
+                    <button className="btn btn-cancel-custom flex-grow-1" type="button" onClick={closeModal}>Cancel</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmModal show={!!deleteId} title="Delete Category" message="This will permanently delete the category. Are you sure?" onConfirm={handleDelete} onCancel={() => setDeleteId(null)} />
     </div>
   );
 }

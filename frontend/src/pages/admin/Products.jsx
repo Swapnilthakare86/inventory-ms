@@ -1,12 +1,31 @@
 import { useEffect, useState } from 'react';
+import { FiDownload, FiEdit2, FiPlus, FiSearch, FiTrash2 } from 'react-icons/fi';
 import API from '../../api/axios';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../../components/ConfirmModal';
 import Pagination from '../../components/Pagination';
 import SkeletonTable from '../../components/SkeletonTable';
+import { normalizeImageUrl, toStoredImagePath } from '../../utils/imageUrl';
 
-const empty = { name: '', category_id: '', supplier_id: '', price: '', stock: '' };
+const empty = { name: '', category_id: '', supplier_id: '', price: '', stock: '', image: '' };
 const PER_PAGE = 10;
+
+const UI = {
+  bg: '#f3f6fb',
+  card: '#ffffff',
+  border: '#dbe3ef',
+  text: '#172033',
+  muted: '#60708a',
+  primary: '#315efb',
+  primarySoft: '#eef3ff',
+  success: '#1f8f5f',
+  successSoft: '#eaf8f1',
+  warning: '#b7791f',
+  warningSoft: '#fff7df',
+  danger: '#d64545',
+  dangerSoft: '#fff0f0',
+  shadow: '0 10px 30px rgba(15, 23, 42, 0.06)',
+};
 
 const formatPrice = (value) => `Rs. ${parseFloat(value).toFixed(2)}`;
 
@@ -27,6 +46,45 @@ const sanitizeFilePart = (value) => {
   return cleaned || 'all';
 };
 
+const statusStyle = (stock) => {
+  if (stock === 0) {
+    return {
+      label: 'Out of Stock',
+      textColor: UI.danger,
+      bgColor: UI.dangerSoft,
+      rowColor: '#fff8f8',
+    };
+  }
+
+  if (stock <= 5) {
+    return {
+      label: 'Low Stock',
+      textColor: UI.warning,
+      bgColor: UI.warningSoft,
+      rowColor: '#fffdf4',
+    };
+  }
+
+  return {
+    label: 'In Stock',
+    textColor: UI.success,
+    bgColor: UI.successSoft,
+    rowColor: '#ffffff',
+  };
+};
+
+const actionButtonStyle = {
+  width: 34,
+  height: 34,
+  borderRadius: 10,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  border: '1px solid transparent',
+  background: 'transparent',
+  transition: 'all 0.2s ease',
+};
+
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -37,6 +95,7 @@ export default function AdminProducts() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('');
   const [stockFilter, setStockFilter] = useState('all');
@@ -76,6 +135,7 @@ export default function AdminProducts() {
       supplier_id: product.supplier_id,
       price: product.price,
       stock: product.stock,
+      image: toStoredImagePath(product.image) || '',
     });
     setEditId(product.id);
     setShowModal(true);
@@ -87,15 +147,34 @@ export default function AdminProducts() {
     setForm(empty);
   };
 
+  const handleImageUpload = async (file) => {
+    if (!file) return;
+    setImageUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const { data } = await API.post('/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setForm(f => ({ ...f, image: toStoredImagePath(data.path || data.url) }));
+      toast.success('Image uploaded.');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Image upload failed.');
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
+      const payload = { ...form, image: toStoredImagePath(form.image) || '' };
       if (editId) {
-        await API.put(`/products/${editId}`, form);
+        await API.put(`/products/${editId}`, payload);
         toast.success('Product updated.');
       } else {
-        await API.post('/products', form);
+        await API.post('/products', payload);
         toast.success('Product created.');
       }
       closeModal();
@@ -119,16 +198,12 @@ export default function AdminProducts() {
     }
   };
 
-  const stockStatus = (stock) => {
-    if (stock === 0) return { label: 'Out of Stock', color: 'danger' };
-    if (stock <= 5) return { label: 'Low Stock', color: 'warning' };
-    return { label: 'In Stock', color: 'success' };
-  };
-
   const lowStockCount = products.filter((product) => product.stock <= 5).length;
 
-  let filtered = products.filter((product) => {
-    const matchSearch = product.name.toLowerCase().includes(search.toLowerCase());
+  const filtered = products.filter((product) => {
+    const matchSearch =
+      product.name.toLowerCase().includes(search.toLowerCase()) ||
+      (product.supplier_name || '').toLowerCase().includes(search.toLowerCase());
     const matchCategory = !catFilter || product.category_name === catFilter;
     const matchStock =
       stockFilter === 'all'
@@ -160,7 +235,7 @@ export default function AdminProducts() {
           product.supplier_name,
           parseFloat(product.price).toFixed(2),
           product.stock,
-          stockStatus(product.stock).label,
+          statusStyle(product.stock).label,
         ]),
       ];
 
@@ -192,121 +267,94 @@ export default function AdminProducts() {
   };
 
   return (
-    <div className="p-4">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h4 className="fw-semibold mb-0">Products</h4>
+    <div className="page">
+      <div className="page__header">
+        <div>
+          <h3 className="page__title">Products</h3>
+          <p className="page__subtitle">Manage inventory, monitor stock health, and update product details.</p>
+        </div>
         <div className="d-flex gap-2">
-          <button
-            className="btn btn-outline-primary btn-sm"
-            onClick={handleExport}
-            disabled={exporting || loading || filtered.length === 0}
-          >
-            {exporting ? 'Exporting...' : 'Export Products CSV'}
+          <button className="btn-secondary-custom" onClick={handleExport} disabled={exporting || loading || filtered.length === 0}>
+            <FiDownload size={16} />{exporting ? 'Exporting...' : 'Export CSV'}
           </button>
-          <button className="btn btn-primary btn-sm" onClick={openAdd}>
-            + Add Product
+          <button className="btn-primary-custom" onClick={openAdd}>
+            <FiPlus size={16} />Add Product
           </button>
         </div>
       </div>
 
       {lowStockCount > 0 && (
-        <div className="alert alert-warning py-2 small" role="alert">
-          <strong>{lowStockCount} product(s)</strong> are low on stock or out of stock.
+        <div className="low-stock-alert">
+          <strong>{lowStockCount} product(s)</strong>&nbsp;need attention because stock is low or unavailable.
         </div>
       )}
 
-      <div className="d-flex gap-2 mb-3 flex-wrap">
-        <input
-          className="form-control"
-          style={{ maxWidth: 220 }}
-          placeholder="Search products..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-        />
-        <select
-          className="form-select"
-          style={{ maxWidth: 180 }}
-          value={catFilter}
-          onChange={(e) => {
-            setCatFilter(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">All Categories</option>
-          {categories.map((category) => (
-            <option key={category.id}>{category.name}</option>
-          ))}
-        </select>
-        <select
-          className="form-select"
-          style={{ maxWidth: 160 }}
-          value={stockFilter}
-          onChange={(e) => {
-            setStockFilter(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="all">All Stock</option>
-          <option value="low">Low Stock</option>
-          <option value="out">Out of Stock</option>
-        </select>
+      <div className="filter-bar">
+        <div className="d-flex flex-wrap gap-2 align-items-center">
+          <div className="search-input-wrap">
+            <FiSearch size={15} className="search-input-icon" />
+            <input className="search-input" placeholder="Search products or suppliers..."
+              value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
+          </div>
+          <select className="filter-select" style={{ maxWidth: 220 }} value={catFilter}
+            onChange={(e) => { setCatFilter(e.target.value); setPage(1); }}>
+            <option value="">All Categories</option>
+            {categories.map(c => <option key={c.id}>{c.name}</option>)}
+          </select>
+          <select className="filter-select" style={{ maxWidth: 180 }} value={stockFilter}
+            onChange={(e) => { setStockFilter(e.target.value); setPage(1); }}>
+            <option value="all">All Stock</option>
+            <option value="low">Low Stock</option>
+            <option value="out">Out of Stock</option>
+          </select>
+        </div>
       </div>
 
-      <div className="card">
+      <div className="table-card">
         <div className="table-responsive">
-          <table className="table table-hover mb-0">
-            <thead className="table-light">
+          <table className="table align-middle mb-0">
+            <thead>
               <tr>
-                <th>S NO</th>
-                <th>Name</th>
-                <th>Category</th>
-                <th>Supplier</th>
-                <th>Price</th>
-                <th>Stock</th>
-                <th>Status</th>
-                <th>Actions</th>
+                {['S NO', 'Image', 'Name', 'Category', 'Supplier', 'Price', 'Stock', 'Status', 'Actions'].map(label => (
+                  <th key={label}>{label}</th>
+                ))}
               </tr>
             </thead>
+
             {loading ? (
               <SkeletonTable cols={8} rows={5} />
             ) : (
               <tbody>
                 {paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center text-muted py-4">
-                      No products found
-                    </td>
+                    <td colSpan={9} className="table-empty">No products found for the selected filters.</td>
                   </tr>
                 ) : (
                   paginated.map((product, index) => {
-                    const status = stockStatus(product.stock);
+                    const status = statusStyle(product.stock);
+
                     return (
-                      <tr
-                        key={product.id}
-                        className={
-                          product.stock === 0 ? 'table-danger' : product.stock <= 5 ? 'table-warning' : ''
-                        }
-                      >
-                        <td>{(page - 1) * PER_PAGE + index + 1}</td>
-                        <td>{product.name}</td>
+                      <tr key={product.id} style={{ background: status.rowColor, borderBottom: `1px solid var(--border)` }}>
+                        <td className="td-bold">{(page - 1) * PER_PAGE + index + 1}</td>
+                        <td style={{ padding: '12px 18px' }}>
+                          {product.image
+                            ? <img src={normalizeImageUrl(product.image)} alt={product.name} className="product-thumb" />
+                            : <div className="product-thumb-placeholder">📦</div>}
+                        </td>
+                        <td className="td-bold">{product.name}</td>
                         <td>{product.category_name}</td>
                         <td>{product.supplier_name}</td>
-                        <td>{formatPrice(product.price)}</td>
-                        <td>{product.stock}</td>
+                        <td className="td-bold">{formatPrice(product.price)}</td>
+                        <td className="td-bold">{product.stock}</td>
                         <td>
-                          <span className={`badge bg-${status.color}`}>{status.label}</span>
+                          <span className={`badge-status badge-status--${product.stock === 0 ? 'out' : product.stock <= 5 ? 'low-stock' : 'in-stock'}`}>
+                            {status.label}
+                          </span>
                         </td>
                         <td>
                           <div className="d-flex gap-2">
-                            <button className="btn btn-sm btn-warning" onClick={() => openEdit(product)}>
-                              Edit
-                            </button>
-                            <button className="btn btn-sm btn-danger" onClick={() => setDeleteId(product.id)}>
-                              Delete
-                            </button>
+                            <button type="button" onClick={() => openEdit(product)} className="action-btn action-btn--edit" title="Edit"><FiEdit2 size={15} /></button>
+                            <button type="button" onClick={() => setDeleteId(product.id)} className="action-btn action-btn--delete" title="Delete"><FiTrash2 size={15} /></button>
                           </div>
                         </td>
                       </tr>
@@ -317,107 +365,64 @@ export default function AdminProducts() {
             )}
           </table>
         </div>
-        <div className="px-3 pb-2">
+
+        <div className="table-card__footer">
           <Pagination total={filtered.length} page={page} perPage={PER_PAGE} onChange={setPage} />
         </div>
       </div>
 
       {showModal && (
-        <div
-          className="modal d-block"
-          style={{ background: 'rgba(0,0,0,0.4)' }}
-          onClick={closeModal}
-        >
-          <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-content p-4">
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <h5 className="fw-semibold mb-0">{editId ? 'Edit Product' : 'Add Product'}</h5>
-                <button className="btn-close" onClick={closeModal} />
-              </div>
-              <form onSubmit={handleSubmit}>
-                <div className="mb-2">
-                  <input
-                    className="form-control"
-                    placeholder="Product name"
-                    required
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  />
-                </div>
-                <div className="mb-2">
-                  <select
-                    className="form-select"
-                    required
-                    value={form.category_id}
-                    onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                  >
-                    <option value="">Select Category</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="mb-2">
-                  <select
-                    className="form-select"
-                    required
-                    value={form.supplier_id}
-                    onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}
-                  >
-                    <option value="">Select Supplier</option>
-                    {suppliers.map((supplier) => (
-                      <option key={supplier.id} value={supplier.id}>
-                        {supplier.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="mb-2">
-                  <div className="input-group">
-                    <span className="input-group-text">Rs.</span>
-                    <input
-                      className="form-control"
-                      type="number"
-                      placeholder="Price"
-                      required
-                      min="0"
-                      step="0.01"
-                      value={form.price}
-                      onChange={(e) => setForm({ ...form, price: e.target.value })}
-                    />
+        <div className="modal d-block modal-overlay" onClick={closeModal}>
+          <div className="modal-dialog modal-dialog-centered" onClick={e => e.stopPropagation()}>
+            <div className="modal-card">
+              <div className="modal-card__body">
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <div>
+                    <h5 className="modal-card__title">{editId ? 'Edit Product' : 'Add Product'}</h5>
+                    <p className="modal-card__subtitle">{editId ? 'Update product details and stock.' : 'Create a new product for inventory.'}</p>
                   </div>
+                  <button className="btn-close" onClick={closeModal} />
                 </div>
-                <div className="mb-3">
-                  <input
-                    className="form-control"
-                    type="number"
-                    placeholder="Stock"
-                    required
-                    min="0"
-                    value={form.stock}
-                    onChange={(e) => setForm({ ...form, stock: e.target.value })}
-                  />
-                </div>
-                <div className="d-flex gap-2">
-                  <button className="btn btn-primary flex-grow-1" type="submit" disabled={submitting}>
-                    {submitting ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-2" />
-                        {editId ? 'Updating...' : 'Creating...'}
-                      </>
-                    ) : editId ? (
-                      'Update'
-                    ) : (
-                      'Create'
+                <form onSubmit={handleSubmit}>
+                  <div className="mb-3"><input className="form-control modal-input" placeholder="Product name" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
+                  <div className="mb-3">
+                    <select className="form-select modal-select" required value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })}>
+                      <option value="">Select Category</option>
+                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="mb-3">
+                    <select className="form-select modal-select" required value={form.supplier_id} onChange={e => setForm({ ...form, supplier_id: e.target.value })}>
+                      <option value="">Select Supplier</option>
+                      {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="mb-3">
+                    <div className="input-group">
+                      <span className="input-group-text" style={{ borderRadius: '12px 0 0 12px' }}>Rs.</span>
+                      <input className="form-control modal-input" type="number" placeholder="Price" required min="0" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="mb-4"><input className="form-control modal-input" type="number" placeholder="Stock quantity" required min="0" value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} /></div>
+                  <div className="mb-4">
+                    <label className="modal-label">Product Image (optional)</label>
+                    <input type="file" accept="image/jpeg,image/png,image/webp" className="form-control modal-input" onChange={e => handleImageUpload(e.target.files[0])} />
+                    {imageUploading && <div className="image-uploading-text">⏳ Uploading image...</div>}
+                    {form.image && !imageUploading && (
+                      <div className="image-preview">
+                        <img src={normalizeImageUrl(form.image)} alt="preview" />
+                        <button type="button" className="image-remove-btn" onClick={() => setForm(f => ({ ...f, image: '' }))}>Remove image</button>
+                      </div>
                     )}
-                  </button>
-                  <button className="btn btn-secondary flex-grow-1" type="button" onClick={closeModal}>
-                    Cancel
-                  </button>
-                </div>
-              </form>
+                  </div>
+                  <div className="d-flex gap-2">
+                    <button className="btn btn-primary-custom flex-grow-1" type="submit" disabled={submitting}>
+                      {submitting ? <><span className="spinner-border spinner-border-sm me-2" />{editId ? 'Updating...' : 'Creating...'}</> : editId ? 'Update Product' : 'Create Product'}
+                    </button>
+                    <button className="btn btn-cancel-custom flex-grow-1" type="button" onClick={closeModal}>Cancel</button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         </div>

@@ -1,2 +1,2 @@
-import SharedDashboard from '../shared/Dashboard';
-export default function AdminDashboard() { return <SharedDashboard isAdmin={true} />; }
+import Dashboard from '../shared/Dashboard';
+export default function AdminDashboard() { return <Dashboard isAdmin={true} />; }

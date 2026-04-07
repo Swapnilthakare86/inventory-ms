@@ -1,2 +1,2 @@
-import SharedProfile from '../shared/Profile';
-export default function StaffProfile() { return <SharedProfile />; }
+import Profile from '../shared/Profile';
+export default function StaffProfile() { return <Profile />; }
