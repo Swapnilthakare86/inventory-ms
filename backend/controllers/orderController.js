@@ -15,6 +15,21 @@ exports.getAll = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+exports.cancelMyOrder = async (req, res, next) => {
+  try {
+    const [[order]] = await db.query('SELECT * FROM orders WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    if (!order) return res.status(404).json({ message: 'Order not found.' });
+    if (order.status === 'cancelled') return res.status(400).json({ message: 'Order already cancelled.' });
+    if (order.status !== 'placed') return res.status(400).json({ message: 'Only placed orders can be cancelled.' });
+
+    await db.query('UPDATE products SET stock = stock + ? WHERE id = ?', [order.quantity, order.product_id]);
+    await db.query('UPDATE orders SET status = ? WHERE id = ?', ['cancelled', req.params.id]);
+    await logAction(req.user.id, 'CANCEL_ORDER', `User cancelled order ${req.params.id}`);
+
+    res.json({ message: 'Order cancelled.' });
+  } catch (err) { next(err); }
+};
+
 exports.getMyOrders = async (req, res, next) => {
   try {
     const [rows] = await db.query(`
