@@ -16,17 +16,19 @@
 
 /* ── Buttons ── */
 .btn-primary-custom {
-  border-radius: var(--radius);
-  padding: 10px 14px;
-  background: var(--primary);
-  color: #fff;
+  border-radius: 999px;
+  padding: 11px 18px;
+  min-height: 44px;
+  background: linear-gradient(135deg, #315efb 0%, #4f6df5 100%);
+  color: #fff !important;
   font-weight: 600;
   font-size: 13px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  border: none;
-  box-shadow: 0 12px 24px rgba(49,94,251,0.22);
+  border: none !important;
+  box-shadow: 0 10px 22px rgba(49,94,251,0.24);
   cursor: pointer;
 }
 
@@ -46,12 +48,14 @@
 }
 
 .btn-cancel-custom {
-  border-radius: var(--radius);
-  background: #eff3f8;
-  color: var(--text);
+  border-radius: 999px;
+  min-height: 44px;
+  background: #f4f7fb !important;
+  color: var(--text) !important;
   font-weight: 600;
-  padding: 11px 14px;
-  border: none;
+  padding: 11px 18px;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 6px 18px rgba(15,23,42,0.05);
   cursor: pointer;
 }
 
@@ -181,6 +185,8 @@
   overflow: hidden;
   box-shadow: 0 24px 60px rgba(15,23,42,0.18);
   border: none;
+  background: var(--card);
+  pointer-events: auto;
 }
 
 .modal-card__body { background: var(--card); padding: 24px; }
@@ -416,6 +422,28 @@
   margin-bottom: 16px;
 }
 
+.profile-header-layout {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.profile-header-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+}
+
+.profile-header-stats {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
 .profile-avatar {
   width: 80px;
   height: 80px;
@@ -431,7 +459,7 @@
 }
 
 .profile-name  { font-size: 16px; font-weight: 600; color: #0F172A; text-align: center; }
-.profile-email { font-size: 13px; color: #64748B; }
+.profile-email { font-size: 13px; color: #64748B; text-align: center; word-break: break-word; }
 
 .profile-role-badge {
   font-size: 11px;
@@ -485,6 +513,13 @@
   flex: 1;
   min-width: 260px;
   box-sizing: border-box;
+}
+
+.profile-bottom-grid {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
 }
 
 .profile-card__header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
@@ -606,4 +641,295 @@
   background: var(--danger-soft);
   color: var(--danger);
   cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 12px 10px;
+    overflow-x: hidden;
+  }
+
+  .page__header {
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .page__title {
+    font-size: 16px;
+  }
+
+  .page__subtitle {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .btn-primary-custom,
+  .btn-secondary-custom,
+  .btn-cancel-custom {
+    min-height: 40px;
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+
+  .filter-bar {
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .search-input-wrap {
+    min-width: 0;
+    max-width: none;
+    flex: 1 1 100%;
+  }
+
+  .search-input,
+  .filter-select {
+    height: 42px;
+    font-size: 13px;
+  }
+
+  .table-card {
+    border-radius: 18px;
+  }
+
+  .table-card .table {
+    min-width: 760px;
+  }
+
+  .table-card th {
+    font-size: 10px;
+    padding: 12px 10px;
+  }
+
+  .table-card td {
+    padding: 12px 10px;
+    font-size: 12px;
+  }
+
+  .table-card__footer {
+    padding: 8px 10px;
+  }
+
+  .low-stock-alert {
+    width: 100%;
+    font-size: 12px;
+    padding: 10px 12px;
+  }
+
+  .filter-btn {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .filter-count {
+    min-width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+
+  .revenue-strip {
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .revenue-badge {
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+
+  .modal-dialog {
+    margin: 10px;
+    max-width: calc(100vw - 20px);
+  }
+
+  .modal-card__body {
+    padding: 12px;
+  }
+
+  .modal-card__title {
+    font-size: 14px;
+  }
+
+  .modal-card__subtitle {
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .modal-input,
+  .modal-select {
+    height: 38px;
+    font-size: 12.5px;
+  }
+
+  .modal-textarea {
+    font-size: 12.5px;
+  }
+
+  .modal-label {
+    font-size: 11.5px;
+    margin-bottom: 4px;
+  }
+
+  .image-preview {
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .image-preview img {
+    width: 54px;
+    height: 54px;
+  }
+
+  .image-remove-btn {
+    font-size: 11px;
+  }
+
+  .btn-close {
+    transform: scale(0.9);
+  }
+
+  .modal-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px !important;
+  }
+
+  .modal-actions .btn-primary-custom,
+  .modal-actions .btn-cancel-custom {
+    min-height: 38px;
+    padding: 8px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .modal.d-block.modal-overlay {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+  }
+
+  .modal.d-block.modal-overlay .modal-dialog {
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .detail-row {
+    gap: 14px;
+    font-size: 12px;
+  }
+
+  .detail-row__value {
+    text-align: right;
+  }
+
+  .profile-page {
+    padding: 12px;
+  }
+
+  .profile-page__title {
+    font-size: 18px;
+  }
+
+  .profile-page__subtitle {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .profile-header-card,
+  .profile-info-card,
+  .profile-pw-card {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .profile-header-layout {
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .profile-header-identity {
+    min-width: 0;
+    width: 100%;
+    gap: 6px;
+  }
+
+  .profile-avatar {
+    width: 72px;
+    height: 72px;
+    font-size: 26px;
+  }
+
+  .profile-name {
+    font-size: 15px;
+  }
+
+  .profile-email {
+    font-size: 12px;
+    max-width: 100%;
+  }
+
+  .profile-header-stats {
+    width: 100%;
+    gap: 10px;
+  }
+
+  .profile-stat-box {
+    min-width: 0;
+    flex: 1 1 calc(50% - 5px);
+    padding: 12px;
+  }
+
+  .profile-stat-box__label {
+    font-size: 10.5px;
+    gap: 5px;
+  }
+
+  .profile-stat-box__value {
+    font-size: 13px;
+  }
+
+  .profile-bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .profile-info-card,
+  .profile-pw-card {
+    min-width: 0;
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .profile-card__title {
+    font-size: 14px;
+  }
+
+  .profile-label {
+    font-size: 12px;
+  }
+
+  .profile-input {
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+
+  .profile-submit-btn {
+    height: 38px;
+    font-size: 13px;
+  }
+
+  .profile-role-badge {
+    font-size: 10.5px;
+    padding: 4px 10px;
+  }
+
+  .profile-submit-btn--profile,
+  .profile-submit-btn--password {
+    width: 100%;
+  }
 }

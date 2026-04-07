@@ -86,6 +86,9 @@ const actionButtonStyle = {
 };
 
 export default function AdminProducts() {
+  const [viewportWidth, setViewportWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1280
+  );
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -120,6 +123,12 @@ export default function AdminProducts() {
 
   useEffect(() => {
     fetchAll();
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const openAdd = () => {
@@ -216,6 +225,7 @@ export default function AdminProducts() {
   });
 
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const isMobile = viewportWidth <= 768;
 
   const handleExport = async () => {
     if (filtered.length === 0) {
@@ -270,38 +280,59 @@ export default function AdminProducts() {
     <div className="page">
       <div className="page__header">
         <div>
-          <h3 className="page__title">Products</h3>
-          <p className="page__subtitle">Manage inventory, monitor stock health, and update product details.</p>
+          <h3 className="page__title" style={isMobile ? { fontSize: 15, marginBottom: 2 } : undefined}>Products</h3>
+          <p className="page__subtitle" style={isMobile ? { fontSize: 11, lineHeight: 1.4, maxWidth: 280 } : undefined}>
+            Manage inventory, monitor stock health, and update product details.
+          </p>
         </div>
-        <div className="d-flex gap-2">
-          <button className="btn-secondary-custom" onClick={handleExport} disabled={exporting || loading || filtered.length === 0}>
+        <div className="d-flex gap-2 flex-wrap" style={isMobile ? { gap: 8 } : undefined}>
+          <button
+            className="btn-secondary-custom"
+            onClick={handleExport}
+            disabled={exporting || loading || filtered.length === 0}
+            style={isMobile ? { minHeight: 36, padding: '8px 12px', fontSize: 11.5 } : undefined}
+          >
             <FiDownload size={16} />{exporting ? 'Exporting...' : 'Export CSV'}
           </button>
-          <button className="btn-primary-custom" onClick={openAdd}>
+          <button
+            className="btn-primary-custom"
+            onClick={openAdd}
+            style={isMobile ? { minHeight: 36, padding: '8px 12px', fontSize: 11.5 } : undefined}
+          >
             <FiPlus size={16} />Add Product
           </button>
         </div>
       </div>
 
       {lowStockCount > 0 && (
-        <div className="low-stock-alert">
-          <strong>{lowStockCount} product(s)</strong>&nbsp;need attention because stock is low or unavailable.
+        <div className="low-stock-alert" style={isMobile ? { fontSize: 11.5, padding: '8px 10px', borderRadius: 12, marginBottom: 10 } : undefined}>
+          {isMobile ? (
+            <div style={{ lineHeight: 1.35 }}>
+              <div><strong>{lowStockCount} product(s)</strong> need attention.</div>
+              <div>Stock is low or unavailable.</div>
+            </div>
+          ) : (
+            <>
+              <strong>{lowStockCount} product(s)</strong>&nbsp;need attention because stock is low or unavailable.
+            </>
+          )}
         </div>
       )}
 
-      <div className="filter-bar">
+      <div className="filter-bar" style={isMobile ? { padding: 10, borderRadius: 16, marginBottom: 10 } : undefined}>
         <div className="d-flex flex-wrap gap-2 align-items-center">
           <div className="search-input-wrap">
             <FiSearch size={15} className="search-input-icon" />
             <input className="search-input" placeholder="Search products or suppliers..."
+              style={isMobile ? { height: 40, fontSize: 12.5 } : undefined}
               value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
           </div>
-          <select className="filter-select" style={{ maxWidth: 220 }} value={catFilter}
+          <select className="filter-select" style={{ maxWidth: isMobile ? 128 : 220, height: isMobile ? 40 : 44, fontSize: isMobile ? 12.5 : 14 }} value={catFilter}
             onChange={(e) => { setCatFilter(e.target.value); setPage(1); }}>
             <option value="">All Categories</option>
             {categories.map(c => <option key={c.id}>{c.name}</option>)}
           </select>
-          <select className="filter-select" style={{ maxWidth: 180 }} value={stockFilter}
+          <select className="filter-select" style={{ maxWidth: isMobile ? 104 : 180, height: isMobile ? 40 : 44, fontSize: isMobile ? 12.5 : 14 }} value={stockFilter}
             onChange={(e) => { setStockFilter(e.target.value); setPage(1); }}>
             <option value="all">All Stock</option>
             <option value="low">Low Stock</option>
@@ -311,6 +342,164 @@ export default function AdminProducts() {
       </div>
 
       <div className="table-card">
+        {isMobile ? (
+          loading ? (
+            <div className="p-3">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="placeholder-glow"
+                  style={{
+                    border: '1px solid var(--border)',
+                    borderRadius: 14,
+                    padding: 10,
+                    marginBottom: 10,
+                    background: '#fff',
+                  }}
+                >
+                  <span className="placeholder rounded d-block mb-2" style={{ width: '100%', height: 18 }} />
+                  <span className="placeholder rounded d-block mb-2" style={{ width: '72%', height: 12 }} />
+                  <span className="placeholder rounded d-block mb-2" style={{ width: '100%', height: 56 }} />
+                  <span className="placeholder rounded d-block" style={{ width: '100%', height: 34 }} />
+                </div>
+              ))}
+            </div>
+          ) : paginated.length === 0 ? (
+            <div className="table-empty">No products found for the selected filters.</div>
+          ) : (
+            <div className="p-2">
+              {paginated.map((product, index) => {
+                const status = statusStyle(product.stock);
+
+                return (
+                  <div
+                    key={product.id}
+                    style={{
+                      background: status.rowColor,
+                      border: '1px solid var(--border)',
+                      borderRadius: 14,
+                      padding: 10,
+                      marginBottom: 10,
+                    }}
+                  >
+                    <div className="d-flex align-items-start gap-2 mb-2">
+                      <div
+                        style={{
+                          width: 46,
+                          height: 46,
+                          borderRadius: 10,
+                          overflow: 'hidden',
+                          background: UI.primarySoft,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {product.image ? (
+                          <img
+                            src={normalizeImageUrl(product.image)}
+                            alt={product.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          <div className="product-thumb-placeholder">ðŸ“¦</div>
+                        )}
+                      </div>
+
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div className="d-flex justify-content-between align-items-start gap-2">
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 11, color: UI.muted, fontWeight: 600 }}>
+                              S NO {(page - 1) * PER_PAGE + index + 1}
+                            </div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: UI.text, lineHeight: 1.25 }}>
+                              {product.name}
+                            </div>
+                          </div>
+
+                          <span
+                            className={`badge-status badge-status--${product.stock === 0 ? 'out' : product.stock <= 5 ? 'low-stock' : 'in-stock'}`}
+                            style={{ fontSize: 10, padding: '4px 8px', flexShrink: 0 }}
+                          >
+                            {status.label}
+                          </span>
+                        </div>
+
+                        <div style={{ fontSize: 12, color: UI.muted, marginTop: 2 }}>
+                          {product.category_name}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                        gap: 8,
+                        marginBottom: 10,
+                      }}
+                    >
+                      {[
+                        ['Supplier', product.supplier_name],
+                        ['Price', formatPrice(product.price)],
+                        ['Stock', product.stock],
+                        ['Category', product.category_name],
+                      ].map(([label, value]) => (
+                        <div
+                          key={label}
+                          style={{
+                            background: '#f8fafc',
+                            border: '1px solid #e5ebf3',
+                            borderRadius: 10,
+                            padding: '8px 9px',
+                            minWidth: 0,
+                          }}
+                        >
+                          <div style={{ fontSize: 10, color: UI.muted, fontWeight: 600, marginBottom: 2 }}>
+                            {label}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: UI.text,
+                              fontWeight: 600,
+                              lineHeight: 1.3,
+                              wordBreak: 'break-word',
+                            }}
+                          >
+                            {value}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="d-flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(product)}
+                        className="action-btn action-btn--edit"
+                        title="Edit"
+                        style={{ flex: 1, width: 'auto', borderRadius: 12 }}
+                      >
+                        <FiEdit2 size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteId(product.id)}
+                        className="action-btn action-btn--delete"
+                        title="Delete"
+                        style={{ flex: 1, width: 'auto', borderRadius: 12 }}
+                      >
+                        <FiTrash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        ) : (
         <div className="table-responsive">
           <table className="table align-middle mb-0">
             <thead>
@@ -365,6 +554,7 @@ export default function AdminProducts() {
             )}
           </table>
         </div>
+        )}
 
         <div className="table-card__footer">
           <Pagination total={filtered.length} page={page} perPage={PER_PAGE} onChange={setPage} />
@@ -372,8 +562,8 @@ export default function AdminProducts() {
       </div>
 
       {showModal && (
-        <div className="modal d-block modal-overlay" onClick={closeModal}>
-          <div className="modal-dialog modal-dialog-centered" onClick={e => e.stopPropagation()}>
+        <div className="modal d-block modal-overlay">
+          <div className="modal-dialog modal-dialog-centered">
             <div className="modal-card">
               <div className="modal-card__body">
                 <div className="d-flex justify-content-between align-items-center mb-3">

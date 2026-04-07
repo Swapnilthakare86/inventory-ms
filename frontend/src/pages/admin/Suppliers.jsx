@@ -24,6 +24,9 @@ const validate = (form) => {
 };
 
 export default function AdminSuppliers() {
+  const [viewportWidth, setViewportWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1280
+  );
   const [suppliers, setSuppliers] = useState([]);
   const [form, setForm] = useState(empty);
   const [errors, setErrors] = useState({});
@@ -40,6 +43,12 @@ export default function AdminSuppliers() {
 
   useEffect(() => {
     fetchSuppliers();
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const handleChange = (field) => (e) => {
@@ -118,6 +127,7 @@ export default function AdminSuppliers() {
       (supplier.email || '').toLowerCase().includes(search.toLowerCase()) ||
       (supplier.phone || '').includes(search)
   );
+  const isMobile = viewportWidth <= 768;
 
   return (
     <div className="page">
@@ -137,36 +147,102 @@ export default function AdminSuppliers() {
       </div>
 
       <div className="table-card">
-        <div className="table-responsive">
-          <table className="table align-middle mb-0">
-            <thead><tr>{['S NO','Name','Email','Phone','Address','Created','Actions'].map(l => <th key={l}>{l}</th>)}</tr></thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={7} className="table-empty">No suppliers found.</td></tr>
-              ) : filtered.map((supplier, index) => (
-                <tr key={supplier.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td className="td-bold">{index + 1}</td>
-                  <td className="td-bold">{supplier.name}</td>
-                  <td>{supplier.email || '-'}</td>
-                  <td>{supplier.phone || '-'}</td>
-                  <td className="td-muted">{supplier.address || '-'}</td>
-                  <td>{new Date(supplier.created_at).toLocaleDateString()}</td>
-                  <td>
-                    <div className="d-flex gap-2">
-                      <button type="button" onClick={() => openEdit(supplier)} className="action-btn action-btn--edit"><FiEdit2 size={15} /></button>
-                      <button type="button" onClick={() => setDeleteId(supplier.id)} className="action-btn action-btn--delete"><FiTrash2 size={15} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {isMobile ? (
+          <div className="table-responsive" style={{ overflowX: 'hidden' }}>
+            <table className="table align-middle mb-0" style={{ tableLayout: 'fixed', width: '100%', minWidth: 0 }}>
+              <thead><tr>{['Sr No','Name','Contact','Address','Act'].map((l, idx) => <th key={l} style={{ fontSize: 8.4, padding: idx === 0 ? '8px 2px 8px 4px' : idx === 1 ? '8px 2px' : idx === 2 ? '8px 7px 8px 3px' : idx === 3 ? '8px 4px 8px 7px' : '8px 4px' }}>{l}</th>)}</tr></thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={5} className="table-empty">No suppliers found.</td></tr>
+                ) : filtered.map((supplier, index) => (
+                  <tr key={supplier.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td className="td-bold" style={{ fontSize: 8.4, padding: '8px 2px 8px 4px', width: '10%', verticalAlign: 'top', whiteSpace: 'nowrap' }}>{index + 1}</td>
+                    <td style={{ padding: '8px 2px 8px 1px', width: '21%', verticalAlign: 'top' }}>
+                      <div
+                        title={supplier.name}
+                        style={{
+                          fontSize: 8.1,
+                          fontWeight: 700,
+                          color: 'var(--text)',
+                          lineHeight: 1.2,
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {supplier.name}
+                      </div>
+                    </td>
+                    <td style={{ padding: '8px 8px 8px 3px', width: '36%', verticalAlign: 'top' }}>
+                      <div
+                        title={supplier.email || '-'}
+                        style={{
+                          fontSize: 7.05,
+                          color: 'var(--text)',
+                          lineHeight: 1.15,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {supplier.email || '-'}
+                      </div>
+                      <div style={{ fontSize: 7.05, color: 'var(--muted)', lineHeight: 1.2, marginTop: 2, whiteSpace: 'nowrap' }}>
+                        {supplier.phone || '-'}
+                      </div>
+                    </td>
+                    <td style={{ padding: '8px 4px 8px 8px', width: '23%', verticalAlign: 'top' }}>
+                      <div
+                        title={supplier.address || '-'}
+                        style={{
+                          fontSize: 7.05,
+                          color: 'var(--muted)',
+                          lineHeight: 1.2,
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {supplier.address || '-'}
+                      </div>
+                    </td>
+                    <td style={{ padding: '8px 4px', width: '10%', verticalAlign: 'top' }}>
+                      <div className="d-flex flex-column gap-1 align-items-start">
+                        <button type="button" onClick={() => openEdit(supplier)} className="action-btn action-btn--edit" style={{ width: 19, height: 19, borderRadius: 6 }}><FiEdit2 size={8.5} /></button>
+                        <button type="button" onClick={() => setDeleteId(supplier.id)} className="action-btn action-btn--delete" style={{ width: 19, height: 19, borderRadius: 6 }}><FiTrash2 size={8.5} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="table-responsive">
+            <table className="table align-middle mb-0">
+              <thead><tr>{['S NO','Name','Email','Phone','Address','Created','Actions'].map(l => <th key={l}>{l}</th>)}</tr></thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={7} className="table-empty">No suppliers found.</td></tr>
+                ) : filtered.map((supplier, index) => (
+                  <tr key={supplier.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td className="td-bold">{index + 1}</td>
+                    <td className="td-bold">{supplier.name}</td>
+                    <td>{supplier.email || '-'}</td>
+                    <td>{supplier.phone || '-'}</td>
+                    <td className="td-muted">{supplier.address || '-'}</td>
+                    <td>{new Date(supplier.created_at).toLocaleDateString()}</td>
+                    <td>
+                      <div className="d-flex gap-2">
+                        <button type="button" onClick={() => openEdit(supplier)} className="action-btn action-btn--edit"><FiEdit2 size={15} /></button>
+                        <button type="button" onClick={() => setDeleteId(supplier.id)} className="action-btn action-btn--delete"><FiTrash2 size={15} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {showModal && (
-        <div className="modal d-block modal-overlay" onClick={closeModal}>
-          <div className="modal-dialog modal-dialog-centered" onClick={e => e.stopPropagation()}>
+        <div className="modal d-block modal-overlay">
+          <div className="modal-dialog modal-dialog-centered">
             <div className="modal-card">
               <div className="modal-card__body">
                 <div className="d-flex justify-content-between align-items-center mb-3">
