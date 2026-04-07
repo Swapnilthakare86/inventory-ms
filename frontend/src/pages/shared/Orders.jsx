@@ -34,6 +34,9 @@ const filterByDate = (list, df) => {
 };
 
 export default function SharedOrders() {
+  const [viewportWidth, setViewportWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1280
+  );
   const [orders, setOrders]         = useState([]);
   const [filter, setFilter]         = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
@@ -49,6 +52,11 @@ export default function SharedOrders() {
     finally { setLoading(false); }
   };
   useEffect(() => { fetchOrders(); }, []);
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const updateStatus = async () => {
     try {
@@ -65,6 +73,7 @@ export default function SharedOrders() {
   const countOf   = (s) => dateScopedOrders.filter(o => o.status === s).length;
   const revenue   = dateScopedOrders.filter(o => o.status !== 'cancelled').reduce((a, o) => a + parseFloat(o.total_price || 0), 0);
   const activeDateLabel = DATE_OPTIONS.find(([v]) => v === dateFilter)?.[1] || 'All Time';
+  const isMobile = viewportWidth <= 768;
 
   const handleExport = async () => {
     if (filtered.length === 0) { toast.error('No orders available.'); return; }
@@ -89,19 +98,27 @@ export default function SharedOrders() {
     <div className="page">
       <div className="page__header">
         <div>
-          <h3 className="page__title">Orders</h3>
-          <p className="page__subtitle">Review order activity, filter by status and date range, and update fulfillment states.</p>
+          <h3 className="page__title" style={isMobile ? { fontSize: 15, marginBottom: 2 } : undefined}>Orders</h3>
+          <p className="page__subtitle" style={isMobile ? { fontSize: 11, lineHeight: 1.4, maxWidth: 300 } : undefined}>
+            Review order activity, filter by status and date range, and update fulfillment states.
+          </p>
         </div>
-        <button className="btn-secondary-custom" onClick={handleExport} disabled={exporting || loading || filtered.length === 0}>
+        <button
+          className="btn-secondary-custom"
+          onClick={handleExport}
+          disabled={exporting || loading || filtered.length === 0}
+          style={isMobile ? { minHeight: 36, padding: '8px 12px', fontSize: 11.5 } : undefined}
+        >
           <FiDownload size={16} />{exporting ? 'Exporting...' : 'Export CSV'}
         </button>
       </div>
 
-      <div className="filter-bar">
-        <div className="d-flex flex-wrap gap-2 justify-content-between align-items-center">
-          <div className="d-flex flex-wrap gap-2">
+      <div className="filter-bar" style={isMobile ? { padding: 8, borderRadius: 14, marginBottom: 10 } : undefined}>
+        <div className="d-flex flex-wrap gap-2 justify-content-between align-items-center" style={isMobile ? { gap: 6 } : undefined}>
+          <div className="d-flex flex-wrap gap-2" style={isMobile ? { gap: 6 } : undefined}>
             {STATUS_OPTIONS.map(([s, label]) => (
               <button key={s} className={`filter-btn filter-btn--${filter === s ? 'active' : 'inactive'}`}
+                style={isMobile ? { padding: '6px 9px', fontSize: 11, minHeight: 34 } : undefined}
                 onClick={() => { setFilter(s); setPage(1); }}>
                 {label}
                 {s !== 'all' && (
@@ -110,72 +127,186 @@ export default function SharedOrders() {
               </button>
             ))}
           </div>
-          <div className="d-flex flex-wrap gap-2">
+          <div className="d-flex flex-wrap gap-2" style={isMobile ? { gap: 6 } : undefined}>
             {DATE_OPTIONS.map(([v, label]) => (
               <button key={v} className={`filter-btn filter-btn--${dateFilter === v ? 'dark-active' : 'dark-inactive'}`}
+                style={isMobile ? { padding: '6px 9px', fontSize: 11, minHeight: 34 } : undefined}
                 onClick={() => { setDateFilter(v); setPage(1); }}>
                 {label}
               </button>
             ))}
           </div>
         </div>
-        <div className="revenue-strip">
-          <span style={{ color: 'var(--muted)', fontSize: 13, marginRight: 8 }}>
+        <div className="revenue-strip" style={isMobile ? { paddingTop: 10, marginTop: 10 } : undefined}>
+          <span style={{ color: 'var(--muted)', fontSize: isMobile ? 11.5 : 13, marginRight: 8 }}>
             Revenue for <strong style={{ color: 'var(--text)' }}>{activeDateLabel}</strong>
           </span>
-          <span className="revenue-badge">{formatCurrency(revenue)}</span>
+          <span className="revenue-badge" style={isMobile ? { fontSize: 11.5, padding: '6px 9px' } : undefined}>{formatCurrency(revenue)}</span>
         </div>
       </div>
 
       <div className="table-card">
-        <div className="table-responsive">
-          <table className="table align-middle mb-0">
-            <thead>
-              <tr>{['S NO','Customer','Address','Product','Category','Qty','Total','Date','Status','Actions'].map(l => <th key={l}>{l}</th>)}</tr>
-            </thead>
-            {loading ? <SkeletonTable cols={10} rows={5} /> : (
-              <tbody>
-                {paginated.length === 0 ? (
-                  <tr><td colSpan={10} className="table-empty">No orders found for the selected filters.</td></tr>
-                ) : paginated.map((order, index) => {
-                  const s = statusClass(order.status);
-                  return (
-                    <tr key={order.id} onClick={() => setDetailOrder(order)}
-                      style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
-                      <td className="td-bold">{(page - 1) * PER_PAGE + index + 1}</td>
-                      <td className="td-bold">{order.user_name}</td>
-                      <td className="td-muted">{order.address}</td>
-                      <td>{order.product_name}</td>
-                      <td>{order.category_name}</td>
-                      <td className="td-bold">{order.quantity}</td>
-                      <td className="td-bold">{formatCurrency(order.total_price)}</td>
-                      <td>{new Date(order.order_date).toLocaleDateString()}</td>
-                      <td>
-                        <span className="badge-status" style={{ color: s.color, background: s.bg }}>{order.status}</span>
-                      </td>
-                      <td onClick={e => e.stopPropagation()}>
-                        <div className="d-flex gap-2">
-                          {order.status === 'placed' && (
-                            <button type="button" className="action-btn" style={{ color: 'var(--success)', background: '#edf9f2', borderColor: '#cfe9da' }}
-                              onClick={() => setConfirm({ show: true, id: order.id, status: 'received' })}>
-                              <FiCheck size={15} />
-                            </button>
-                          )}
-                          {order.status !== 'cancelled' && (
-                            <button type="button" className="action-btn action-btn--delete"
-                              onClick={() => setConfirm({ show: true, id: order.id, status: 'cancelled' })}>
-                              <FiX size={15} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            )}
-          </table>
-        </div>
+        {isMobile ? (
+          <div className="table-responsive" style={{ overflowX: 'hidden' }}>
+            <table
+              className="table align-middle mb-0"
+              style={{ tableLayout: 'fixed', width: '100%', minWidth: 0 }}
+            >
+              <thead>
+                <tr>{['Sr No','Customer','Product','Qty','Total','Status','Act'].map(l => <th key={l} style={{ fontSize: 8.75, padding: '10px 3px' }}>{l}</th>)}</tr>
+              </thead>
+              {loading ? <SkeletonTable cols={7} rows={5} /> : (
+                <tbody>
+                  {paginated.length === 0 ? (
+                    <tr><td colSpan={7} className="table-empty">No orders found for the selected filters.</td></tr>
+                  ) : paginated.map((order, index) => {
+                    const s = statusClass(order.status);
+                    return (
+                      <tr key={order.id} onClick={() => setDetailOrder(order)}
+                        style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
+                        <td className="td-bold" style={{ fontSize: 8.75, padding: '9px 3px', width: '12%', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                          {(page - 1) * PER_PAGE + index + 1}
+                        </td>
+                        <td style={{ padding: '9px 3px', width: '24%', verticalAlign: 'top' }}>
+                          <div
+                            title={order.user_name}
+                            style={{
+                              fontSize: 8.9,
+                              fontWeight: 700,
+                              color: 'var(--text)',
+                              lineHeight: 1.2,
+                              wordBreak: 'break-word',
+                            }}
+                          >
+                            {order.user_name}
+                          </div>
+                          <div
+                            title={order.address}
+                            style={{
+                              fontSize: 7.6,
+                              color: 'var(--muted)',
+                              lineHeight: 1.2,
+                              marginTop: 2,
+                              wordBreak: 'break-word',
+                            }}
+                          >
+                            {order.address}
+                          </div>
+                        </td>
+                        <td style={{ padding: '9px 3px', width: '22%', verticalAlign: 'top' }}>
+                          <div
+                            title={order.product_name}
+                            style={{
+                              fontSize: 8.6,
+                              color: 'var(--text)',
+                              lineHeight: 1.2,
+                              wordBreak: 'break-word',
+                            }}
+                          >
+                            {order.product_name}
+                          </div>
+                          <div
+                            title={order.category_name}
+                            style={{
+                              fontSize: 7.6,
+                              color: 'var(--muted)',
+                              lineHeight: 1.2,
+                              marginTop: 2,
+                              wordBreak: 'break-word',
+                            }}
+                          >
+                            {order.category_name}
+                          </div>
+                        </td>
+                        <td className="td-bold" style={{ fontSize: 8.75, padding: '9px 3px', width: '8%', verticalAlign: 'top', textAlign: 'center' }}>
+                          {order.quantity}
+                        </td>
+                        <td className="td-bold" style={{ fontSize: 8.2, padding: '9px 3px', width: '16%', verticalAlign: 'top' }}>
+                          <div style={{ whiteSpace: 'nowrap' }}>Rs.{parseFloat(order.total_price).toFixed(0)}</div>
+                          <div style={{ fontSize: 7.3, color: 'var(--muted)', lineHeight: 1.2, marginTop: 2 }}>
+                            {new Date(order.order_date).toLocaleDateString()}
+                          </div>
+                        </td>
+                        <td style={{ padding: '9px 3px', width: '11%', verticalAlign: 'top' }}>
+                          <span className="badge-status" style={{ color: s.color, background: s.bg, fontSize: 7, padding: '2px 4px', lineHeight: 1.15, textAlign: 'center', justifyContent: 'center', whiteSpace: 'normal' }}>
+                            {order.status}
+                          </span>
+                        </td>
+                        <td onClick={e => e.stopPropagation()} style={{ padding: '9px 3px', width: '7%', verticalAlign: 'top' }}>
+                          <div className="d-flex flex-column gap-1 align-items-start">
+                            {order.status === 'placed' && (
+                              <button type="button" className="action-btn"
+                                style={{ width: 20, height: 20, borderRadius: 6, color: 'var(--success)', background: '#edf9f2', borderColor: '#cfe9da' }}
+                                onClick={() => setConfirm({ show: true, id: order.id, status: 'received' })}>
+                                <FiCheck size={9} />
+                              </button>
+                            )}
+                            {order.status !== 'cancelled' && (
+                              <button type="button" className="action-btn action-btn--delete"
+                                style={{ width: 20, height: 20, borderRadius: 6 }}
+                                onClick={() => setConfirm({ show: true, id: order.id, status: 'cancelled' })}>
+                                <FiX size={9} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              )}
+            </table>
+          </div>
+        ) : (
+          <div className="table-responsive">
+            <table className="table align-middle mb-0">
+              <thead>
+                <tr>{['S NO','Customer','Address','Product','Category','Qty','Total','Date','Status','Actions'].map(l => <th key={l}>{l}</th>)}</tr>
+              </thead>
+              {loading ? <SkeletonTable cols={10} rows={5} /> : (
+                <tbody>
+                  {paginated.length === 0 ? (
+                    <tr><td colSpan={10} className="table-empty">No orders found for the selected filters.</td></tr>
+                  ) : paginated.map((order, index) => {
+                    const s = statusClass(order.status);
+                    return (
+                      <tr key={order.id} onClick={() => setDetailOrder(order)}
+                        style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
+                        <td className="td-bold">{(page - 1) * PER_PAGE + index + 1}</td>
+                        <td className="td-bold">{order.user_name}</td>
+                        <td className="td-muted">{order.address}</td>
+                        <td>{order.product_name}</td>
+                        <td>{order.category_name}</td>
+                        <td className="td-bold">{order.quantity}</td>
+                        <td className="td-bold">{formatCurrency(order.total_price)}</td>
+                        <td>{new Date(order.order_date).toLocaleDateString()}</td>
+                        <td>
+                          <span className="badge-status" style={{ color: s.color, background: s.bg }}>{order.status}</span>
+                        </td>
+                        <td onClick={e => e.stopPropagation()}>
+                          <div className="d-flex gap-2">
+                            {order.status === 'placed' && (
+                              <button type="button" className="action-btn" style={{ color: 'var(--success)', background: '#edf9f2', borderColor: '#cfe9da' }}
+                                onClick={() => setConfirm({ show: true, id: order.id, status: 'received' })}>
+                                <FiCheck size={15} />
+                              </button>
+                            )}
+                            {order.status !== 'cancelled' && (
+                              <button type="button" className="action-btn action-btn--delete"
+                                onClick={() => setConfirm({ show: true, id: order.id, status: 'cancelled' })}>
+                                <FiX size={15} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              )}
+            </table>
+          </div>
+        )}
         <div className="table-card__footer">
           <Pagination total={filtered.length} page={page} perPage={PER_PAGE} onChange={setPage} />
         </div>

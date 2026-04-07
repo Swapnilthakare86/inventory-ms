@@ -18,6 +18,9 @@ const statusClass = (s) => {
 };
 
 export default function UserOrders() {
+  const [viewportWidth, setViewportWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1280
+  );
   const [orders, setOrders]           = useState([]);
   const [loading, setLoading]         = useState(true);
   const [page, setPage]               = useState(1);
@@ -31,6 +34,11 @@ export default function UserOrders() {
     finally { setLoading(false); }
   };
   useEffect(() => { fetchOrders(); }, []);
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const cancelOrder = async () => {
     try {
@@ -44,6 +52,7 @@ export default function UserOrders() {
   const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   const totalSpent = orders.filter(o => o.status !== 'cancelled').reduce((a, o) => a + parseFloat(o.total_price), 0);
   const countOf    = (s) => orders.filter(o => o.status === s).length;
+  const isMobile = viewportWidth <= 768;
 
   return (
     <div className="page">
@@ -55,7 +64,7 @@ export default function UserOrders() {
       </div>
 
       {/* Summary cards */}
-      <div className="row g-3 mb-3">
+      <div className="row g-2 mb-3">
         {[
           { label: 'Total Orders', value: orders.length,              icon: FiShoppingBag, accent: 'var(--primary)', bg: 'var(--primary-soft)' },
           { label: 'Total Spent',  value: formatCurrency(totalSpent), icon: FiPackage,     accent: '#6d48d7',        bg: '#f3edff' },
@@ -63,12 +72,12 @@ export default function UserOrders() {
           { label: 'Received',     value: countOf('received'),        icon: FiPackage,     accent: 'var(--success)', bg: 'var(--success-soft)' },
         ].map(({ label, value, icon: Icon, accent, bg }) => (
           <div className="col-12 col-sm-6 col-xl-3" key={label}>
-            <div className="summary-card">
-              <div className="d-flex align-items-center gap-3">
-                <div className="summary-card__icon" style={{ background: bg, color: accent, width: 44, height: 44, borderRadius: 14 }}><Icon size={18} /></div>
+            <div className="summary-card" style={{ padding: isMobile ? '10px 12px' : undefined, borderRadius: isMobile ? 16 : undefined }}>
+              <div className="d-flex align-items-center" style={{ gap: isMobile ? 10 : 12 }}>
+                <div className="summary-card__icon" style={{ background: bg, color: accent, width: isMobile ? 38 : 44, height: isMobile ? 38 : 44, borderRadius: isMobile ? 12 : 14 }}><Icon size={isMobile ? 15 : 18} /></div>
                 <div>
-                  <div className="summary-card__label">{label}</div>
-                  <div className="summary-card__value" style={{ fontSize: 22 }}>{value}</div>
+                  <div className="summary-card__label" style={{ fontSize: isMobile ? 10.5 : undefined }}>{label}</div>
+                  <div className="summary-card__value" style={{ fontSize: isMobile ? 14 : 22 }}>{value}</div>
                 </div>
               </div>
             </div>
@@ -77,14 +86,22 @@ export default function UserOrders() {
       </div>
 
       {/* Status filter */}
-      <div className="filter-bar">
-        <div className="d-flex flex-wrap gap-2">
+      <div className="filter-bar" style={{ padding: isMobile ? '8px' : undefined, borderRadius: isMobile ? 16 : undefined }}>
+        <div
+          className="d-flex"
+          style={{
+            gap: isMobile ? 6 : 10,
+            flexWrap: 'nowrap',
+            overflow: 'hidden',
+          }}
+        >
           {STATUS_OPTIONS.map(([s, label]) => (
             <button key={s} type="button" className={`filter-btn filter-btn--${statusFilter === s ? 'active' : 'inactive'}`}
+              style={isMobile ? { padding: '6px 9px', fontSize: 10.5, minHeight: 34, borderRadius: 11, flex: '1 1 0', justifyContent: 'center' } : undefined}
               onClick={() => { setStatusFilter(s); setPage(1); }}>
               {label}
               {s !== 'all' && (
-                <span className={`filter-count filter-count--${statusFilter === s ? 'active' : 'inactive'}`}>{countOf(s)}</span>
+                <span className={`filter-count filter-count--${statusFilter === s ? 'active' : 'inactive'}`} style={isMobile ? { minWidth: 16, height: 16, fontSize: 8.5 } : undefined}>{countOf(s)}</span>
               )}
             </button>
           ))}
@@ -93,41 +110,121 @@ export default function UserOrders() {
 
       {/* Table */}
       <div className="table-card">
-        <div className="table-responsive">
-          <table className="table align-middle mb-0">
-            <thead>
-              <tr>{['S NO','Product','Category','Qty','Total','Date','Status','Action'].map(l => <th key={l}>{l}</th>)}</tr>
-            </thead>
-            {loading ? <SkeletonTable cols={8} rows={5} /> : (
-              <tbody>
-                {paginated.length === 0 ? (
-                  <tr><td colSpan={8} className="table-empty">No orders found for the selected filters.</td></tr>
-                ) : paginated.map((order, index) => {
-                  const s = statusClass(order.status);
-                  return (
-                    <tr key={order.id} onClick={() => setDetailOrder(order)}
-                      style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
-                      <td className="td-bold">{(page - 1) * PER_PAGE + index + 1}</td>
-                      <td className="td-bold">{order.product_name}</td>
-                      <td>{order.category_name}</td>
-                      <td className="td-bold">{order.quantity}</td>
-                      <td className="td-bold">{formatCurrency(order.total_price)}</td>
-                      <td>{new Date(order.order_date).toLocaleDateString()}</td>
-                      <td>
-                        <span className="badge-status" style={{ color: s.color, background: s.bg }}>{order.status}</span>
-                      </td>
-                      <td onClick={e => e.stopPropagation()}>
-                        {order.status === 'placed'
-                          ? <button type="button" className="cancel-order-btn" onClick={() => setConfirmId(order.id)}>Cancel</button>
-                          : <span style={{ color: 'var(--muted)', fontSize: 13 }}>-</span>}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            )}
-          </table>
-        </div>
+        {isMobile ? (
+          <div className="table-responsive" style={{ overflowX: 'hidden' }}>
+            <table className="table align-middle mb-0" style={{ tableLayout: 'fixed', width: '100%', minWidth: 0 }}>
+              <thead>
+                <tr>
+                  {['Sr No','Product','Category','Qty','Total','Status'].map((l, idx) => (
+                    <th
+                      key={l}
+                      style={{
+                        fontSize: 8.4,
+                        padding:
+                          idx === 0 ? '8px 2px 8px 4px' :
+                          idx === 1 ? '8px 3px 8px 2px' :
+                          idx === 2 ? '8px 6px 8px 4px' :
+                          idx === 3 ? '8px 3px' :
+                          idx === 4 ? '8px 6px 8px 4px' :
+                          '8px 4px 8px 6px',
+                      }}
+                    >
+                      {l}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              {loading ? <SkeletonTable cols={6} rows={5} /> : (
+                <tbody>
+                  {paginated.length === 0 ? (
+                    <tr><td colSpan={6} className="table-empty">No orders found for the selected filters.</td></tr>
+                  ) : paginated.map((order, index) => {
+                    const s = statusClass(order.status);
+                    return (
+                      <tr key={order.id} onClick={() => setDetailOrder(order)} style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
+                        <td className="td-bold" style={{ fontSize: 8.4, padding: '8px 2px 8px 4px', width: '10%', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                          {(page - 1) * PER_PAGE + index + 1}
+                        </td>
+                        <td style={{ padding: '8px 3px 8px 2px', width: '27%', verticalAlign: 'top' }}>
+                          <div style={{ fontSize: 8.1, fontWeight: 700, color: 'var(--text)', lineHeight: 1.2, wordBreak: 'break-word' }}>
+                            {order.product_name}
+                          </div>
+                          <div style={{ fontSize: 7.05, color: 'var(--muted)', lineHeight: 1.2, marginTop: 2 }}>
+                            {new Date(order.order_date).toLocaleDateString()}
+                          </div>
+                        </td>
+                        <td style={{ padding: '8px 6px 8px 4px', width: '22%', verticalAlign: 'top' }}>
+                          <div style={{ fontSize: 7.35, color: 'var(--text)', lineHeight: 1.2, wordBreak: 'break-word' }}>
+                            {order.category_name}
+                          </div>
+                        </td>
+                        <td className="td-bold" style={{ fontSize: 8.3, padding: '8px 3px', width: '10%', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                          {order.quantity}
+                        </td>
+                        <td style={{ padding: '8px 6px 8px 4px', width: '18%', verticalAlign: 'top' }}>
+                          <div style={{ fontSize: 7.55, fontWeight: 700, color: 'var(--text)', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+                            {formatCurrency(order.total_price)}
+                          </div>
+                          {order.status === 'placed' ? (
+                            <button
+                              type="button"
+                              className="cancel-order-btn"
+                              onClick={(e) => { e.stopPropagation(); setConfirmId(order.id); }}
+                              style={{ marginTop: 4, padding: '4px 7px', fontSize: 9, borderRadius: 8 }}
+                            >
+                              Cancel
+                            </button>
+                          ) : null}
+                        </td>
+                        <td style={{ padding: '8px 4px 8px 6px', width: '13%', verticalAlign: 'top' }}>
+                          <span className="badge-status" style={{ color: s.color, background: s.bg, fontSize: 7.2, padding: '3px 5px', lineHeight: 1.1 }}>
+                            {order.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              )}
+            </table>
+          </div>
+        ) : (
+          <div className="table-responsive">
+            <table className="table align-middle mb-0">
+              <thead>
+                <tr>{['S NO','Product','Category','Qty','Total','Date','Status','Action'].map(l => <th key={l}>{l}</th>)}</tr>
+              </thead>
+              {loading ? <SkeletonTable cols={8} rows={5} /> : (
+                <tbody>
+                  {paginated.length === 0 ? (
+                    <tr><td colSpan={8} className="table-empty">No orders found for the selected filters.</td></tr>
+                  ) : paginated.map((order, index) => {
+                    const s = statusClass(order.status);
+                    return (
+                      <tr key={order.id} onClick={() => setDetailOrder(order)}
+                        style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
+                        <td className="td-bold">{(page - 1) * PER_PAGE + index + 1}</td>
+                        <td className="td-bold">{order.product_name}</td>
+                        <td>{order.category_name}</td>
+                        <td className="td-bold">{order.quantity}</td>
+                        <td className="td-bold">{formatCurrency(order.total_price)}</td>
+                        <td>{new Date(order.order_date).toLocaleDateString()}</td>
+                        <td>
+                          <span className="badge-status" style={{ color: s.color, background: s.bg }}>{order.status}</span>
+                        </td>
+                        <td onClick={e => e.stopPropagation()}>
+                          {order.status === 'placed'
+                            ? <button type="button" className="cancel-order-btn" onClick={() => setConfirmId(order.id)}>Cancel</button>
+                            : <span style={{ color: 'var(--muted)', fontSize: 13 }}>-</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              )}
+            </table>
+          </div>
+        )}
         <div className="table-card__footer">
           <Pagination total={filtered.length} page={page} perPage={PER_PAGE} onChange={setPage} />
         </div>

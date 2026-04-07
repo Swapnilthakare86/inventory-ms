@@ -28,6 +28,9 @@ const validate = (form) => {
 };
 
 export default function AdminUsers() {
+  const [viewportWidth, setViewportWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1280
+  );
   const [users, setUsers] = useState([]);
   const [form, setForm] = useState(empty);
   const [errors, setErrors] = useState({});
@@ -39,6 +42,11 @@ export default function AdminUsers() {
 
   const fetchUsers = async () => { const r = await API.get('/users'); setUsers(r.data); };
   useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleChange = (field) => (e) => {
     setForm({ ...form, [field]: e.target.value });
@@ -73,6 +81,7 @@ export default function AdminUsers() {
     (u.address || '').toLowerCase().includes(search.toLowerCase()) ||
     u.role.toLowerCase().includes(search.toLowerCase())
   );
+  const isMobile = viewportWidth <= 768;
 
   return (
     <div className="page">
@@ -93,32 +102,88 @@ export default function AdminUsers() {
       </div>
 
       <div className="table-card">
-        <div className="table-responsive">
-          <table className="table align-middle mb-0">
-            <thead><tr>{['S NO','Name','Email','Address','Role','Actions'].map(l => <th key={l}>{l}</th>)}</tr></thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={6} className="table-empty">No users found.</td></tr>
-              ) : filtered.map((user, index) => {
-                const role = roleStyle(user.role);
-                return (
-                  <tr key={user.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td className="td-bold">{index + 1}</td>
-                    <td className="td-bold">{user.name}</td>
-                    <td>{user.email}</td>
-                    <td className="td-muted">{user.address || '-'}</td>
-                    <td>
-                      <span className="role-badge" style={{ color: role.color, background: role.bg }}>{user.role}</span>
-                    </td>
-                    <td>
-                      <button type="button" onClick={() => setDeleteId(user.id)} className="action-btn action-btn--delete"><FiTrash2 size={15} /></button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        {isMobile ? (
+          <div className="table-responsive" style={{ overflowX: 'hidden' }}>
+            <table className="table align-middle mb-0" style={{ tableLayout: 'fixed', width: '100%', minWidth: 0 }}>
+              <thead><tr>{['Sr No','Name','Email','Role','Act'].map((l, idx) => <th key={l} style={{ fontSize: 8.4, padding: idx === 0 ? '8px 2px 8px 4px' : idx === 1 ? '8px 2px' : idx === 2 ? '8px 7px 8px 3px' : idx === 3 ? '8px 4px 8px 7px' : '8px 2px' }}>{l}</th>)}</tr></thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={5} className="table-empty">No users found.</td></tr>
+                ) : filtered.map((user, index) => {
+                  const role = roleStyle(user.role);
+                  return (
+                    <tr key={user.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td className="td-bold" style={{ fontSize: 8.4, padding: '8px 2px 8px 4px', width: '10%', verticalAlign: 'top', whiteSpace: 'nowrap' }}>{index + 1}</td>
+                      <td style={{ padding: '8px 2px 8px 1px', width: '22%', verticalAlign: 'top' }}>
+                        <div
+                          title={user.name}
+                          style={{
+                            fontSize: 8.1,
+                            fontWeight: 700,
+                            color: 'var(--text)',
+                            lineHeight: 1.2,
+                            wordBreak: 'break-word',
+                          }}
+                        >
+                          {user.name}
+                        </div>
+                        <div style={{ fontSize: 7.1, color: 'var(--muted)', lineHeight: 1.2, marginTop: 2, wordBreak: 'break-word' }}>
+                          {user.address || '-'}
+                        </div>
+                      </td>
+                      <td style={{ padding: '8px 8px 8px 3px', width: '40%', verticalAlign: 'top' }}>
+                        <div
+                          title={user.email}
+                          style={{
+                            fontSize: 7.15,
+                            color: 'var(--text)',
+                            lineHeight: 1.15,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {user.email}
+                        </div>
+                      </td>
+                      <td style={{ padding: '8px 4px 8px 8px', width: '18%', verticalAlign: 'top' }}>
+                        <span className="role-badge" style={{ color: role.color, background: role.bg, fontSize: 7.1, padding: '3px 4px' }}>{user.role}</span>
+                      </td>
+                      <td style={{ padding: '8px 2px', width: '10%', verticalAlign: 'top' }}>
+                        <button type="button" onClick={() => setDeleteId(user.id)} className="action-btn action-btn--delete" style={{ width: 19, height: 19, borderRadius: 6 }}><FiTrash2 size={8.5} /></button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="table-responsive">
+            <table className="table align-middle mb-0">
+              <thead><tr>{['S NO','Name','Email','Address','Role','Actions'].map(l => <th key={l}>{l}</th>)}</tr></thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={6} className="table-empty">No users found.</td></tr>
+                ) : filtered.map((user, index) => {
+                  const role = roleStyle(user.role);
+                  return (
+                    <tr key={user.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td className="td-bold">{index + 1}</td>
+                      <td className="td-bold">{user.name}</td>
+                      <td>{user.email}</td>
+                      <td className="td-muted">{user.address || '-'}</td>
+                      <td>
+                        <span className="role-badge" style={{ color: role.color, background: role.bg }}>{user.role}</span>
+                      </td>
+                      <td>
+                        <button type="button" onClick={() => setDeleteId(user.id)} className="action-btn action-btn--delete"><FiTrash2 size={15} /></button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {showModal && (

@@ -44,7 +44,7 @@ export default function Sidebar() {
   return (
     <div className="sidebar" style={{ width: w }}>
       <div className="sidebar__header">
-        {!collapsed && <span className="sidebar__brand">Inventory MS</span>}
+        {!collapsed && <span className="sidebar__brand"></span>}
         <button className="sidebar__toggle" onClick={() => setCollapsed(c => !c)}>
           <FiMenu size={18} />
         </button>

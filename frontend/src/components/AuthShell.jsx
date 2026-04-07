@@ -48,6 +48,29 @@ export const authInputIconStyle = {
 export default function AuthShell({ children, variant = 'register' }) {
   const panelBackground = PANEL_VARIANTS[variant] || PANEL_VARIANTS.register;
 
+  // If variant is 'forgot', render only the right panel (no left panel)
+  if (variant === 'forgot') {
+    return (
+      <div className="d-flex flex-grow-1 align-items-center justify-content-center px-3 py-4" style={{ background: SHELL_UI.bg }}>
+        <div
+          className="w-100 overflow-hidden"
+          style={{
+            maxWidth: 470,
+            background: SHELL_UI.card,
+            border: `1px solid ${SHELL_UI.border}`,
+            borderRadius: 20,
+            boxShadow: SHELL_UI.shadow,
+          }}
+        >
+          <div className="p-3 p-md-4">
+            <div style={{ maxWidth: 470 }}>{children}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Default: show both panels
   return (
     <div className="d-flex flex-grow-1 align-items-center justify-content-center px-3 py-4" style={{ background: SHELL_UI.bg }}>
       <div
@@ -63,6 +86,7 @@ export default function AuthShell({ children, variant = 'register' }) {
         <div className="row g-0">
           <div className="col-lg-5 d-none d-lg-flex">
             <div className="h-100 w-100 p-3 text-white" style={{ background: panelBackground }}>
+              {/* ...existing code for left panel... */}
               <div
                 className="mb-4 d-inline-flex align-items-center"
                 style={{

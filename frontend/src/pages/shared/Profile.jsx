@@ -139,14 +139,14 @@ export default function Profile() {
 
         {/* Header Card */}
         <div className="profile-header-card">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, minWidth: 120 }}>
+          <div className="profile-header-layout">
+            <div className="profile-header-identity">
               <div className="profile-avatar">{getInitials(user?.name)}</div>
               <div className="profile-name">{user?.name}</div>
               <div className="profile-email">{user?.email}</div>
               <span className="profile-role-badge" style={{ background: badge.bg, color: badge.color }}>{user?.role}</span>
             </div>
-            <div style={{ display: 'flex', gap: 12, flex: 1, flexWrap: 'wrap' }}>
+            <div className="profile-header-stats">
               {[
                 { icon: HiOutlineShieldCheck, label: 'ROLE',   value: user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1) },
                 { icon: HiOutlineCheckCircle, label: 'STATUS', value: 'Active', dot: true },
@@ -164,7 +164,7 @@ export default function Profile() {
         </div>
 
         {/* Bottom cards */}
-        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div className="profile-bottom-grid">
 
           {/* Profile Info */}
           <div className="profile-info-card">

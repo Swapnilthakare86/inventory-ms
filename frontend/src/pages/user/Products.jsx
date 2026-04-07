@@ -16,6 +16,9 @@ const statusLabel = (stock) => {
 };
 
 export default function UserProducts() {
+  const [viewportWidth, setViewportWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1280
+  );
   const [products, setProducts]   = useState([]);
   const [categories, setCategories] = useState([]);
   const [catFilter, setCatFilter] = useState('');
@@ -35,6 +38,11 @@ export default function UserProducts() {
     } finally { setLoading(false); }
   };
   useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const filtered = products.filter(p => {
     const t = search.toLowerCase();
@@ -46,6 +54,7 @@ export default function UserProducts() {
   const lowStockCount  = products.filter(p => p.stock <= 5).length;
   const inStockCount   = products.filter(p => p.stock > 5).length;
   const outOfStockCount = products.filter(p => p.stock === 0).length;
+  const isMobile = viewportWidth <= 768;
 
   const openOrder  = (p) => { setOrderModal(p); setQuantity(1); setConfirmed(false); };
   const closeModal = () => { setOrderModal(null); setQuantity(1); setConfirmed(false); };
@@ -70,7 +79,7 @@ export default function UserProducts() {
   const canReview = orderModal && quantity >= 1 && quantity <= orderModal.stock;
 
   return (
-    <div className="page px-4 pb-4 pt-2">
+    <div className="page" style={{ padding: isMobile ? '10px 10px 14px' : '8px 24px 24px' }}>
       <div className="page__header">
         <div>
           <h3 className="page__title">Products</h3>
@@ -79,7 +88,7 @@ export default function UserProducts() {
       </div>
 
       {/* Summary cards */}
-      <div className="row g-3 mb-3">
+      <div className="row g-2 mb-3">
         {[
           { label: 'Available Products', value: products.length,  icon: FiBox,          accent: 'var(--primary)', bg: 'var(--primary-soft)' },
           { label: 'In Stock',           value: inStockCount,     icon: FiPackage,       accent: 'var(--success)', bg: 'var(--success-soft)' },
@@ -87,12 +96,12 @@ export default function UserProducts() {
           { label: 'Out of Stock',       value: outOfStockCount,  icon: FiShoppingCart,  accent: 'var(--danger)',  bg: 'var(--danger-soft)'  },
         ].map(({ label, value, icon: Icon, accent, bg }) => (
           <div className="col-12 col-sm-6 col-xl-3" key={label}>
-            <div className="summary-card">
-              <div className="d-flex align-items-center gap-3">
-                <div className="summary-card__icon" style={{ background: bg, color: accent }}><Icon size={15} /></div>
+            <div className="summary-card" style={{ padding: isMobile ? '10px 12px' : undefined, borderRadius: isMobile ? 16 : undefined }}>
+              <div className="d-flex align-items-center" style={{ gap: isMobile ? 10 : 12 }}>
+                <div className="summary-card__icon" style={{ background: bg, color: accent, width: isMobile ? 38 : undefined, height: isMobile ? 38 : undefined, borderRadius: isMobile ? 12 : undefined }}><Icon size={isMobile ? 14 : 15} /></div>
                 <div>
-                  <div className="summary-card__label">{label}</div>
-                  <div className="summary-card__value">{value}</div>
+                  <div className="summary-card__label" style={{ fontSize: isMobile ? 10.5 : undefined, marginBottom: isMobile ? 1 : undefined }}>{label}</div>
+                  <div className="summary-card__value" style={{ fontSize: isMobile ? 14 : undefined }}>{value}</div>
                 </div>
               </div>
             </div>
@@ -101,14 +110,15 @@ export default function UserProducts() {
       </div>
 
       {/* Filter bar */}
-      <div className="filter-bar">
+      <div className="filter-bar" style={{ padding: isMobile ? 12 : undefined, borderRadius: isMobile ? 18 : undefined }}>
         <div className="d-flex flex-wrap gap-2 align-items-center">
           <div className="search-input-wrap">
             <FiSearch size={15} className="search-input-icon" />
             <input className="search-input" placeholder="Search products or categories..."
+              style={{ height: isMobile ? 40 : undefined, fontSize: isMobile ? 12.5 : undefined }}
               value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
           </div>
-          <select className="filter-select" style={{ maxWidth: 220 }} value={catFilter}
+          <select className="filter-select" style={{ maxWidth: isMobile ? 132 : 220, height: isMobile ? 40 : undefined, fontSize: isMobile ? 12.5 : undefined }} value={catFilter}
             onChange={e => { setCatFilter(e.target.value); setPage(1); }}>
             <option value="">All Categories</option>
             {categories.map(c => <option key={c.id}>{c.name}</option>)}

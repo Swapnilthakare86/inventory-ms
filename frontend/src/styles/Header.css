@@ -12,10 +12,76 @@
   padding: 0 24px;
 }
 
-.header__welcome { font-size: 14px; color: var(--muted); }
-.header__welcome strong { color: var(--text); font-weight: 600; }
+.header__brand-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.header__brand-icon {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+}
+
+.header__brand-icon-main {
+  width: 100%;
+  height: 100%;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #1d4ed8, #3b82f6 58%, #60a5fa);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.22);
+}
+
+.header__brand-icon-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #16a34a;
+  border: 2px solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(22, 163, 74, 0.15);
+}
+
+.header__brand-text {
+  min-width: 0;
+}
+
+.header__brand-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+}
+
+.header__brand-subtitle {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.1;
+  margin-top: 2px;
+}
 
 .header__right { display: flex; align-items: center; gap: 10px; }
+.header__meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 3px;
+}
 
 .header__avatar {
   width: 36px;
@@ -30,7 +96,7 @@
   flex-shrink: 0;
 }
 
-.header__user-name { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.2; }
+.header__user-name { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.1; }
 
 .header__role-badge {
   font-size: 9px;
@@ -39,4 +105,67 @@
   border-radius: 20px;
   color: #fff;
   display: inline-block;
+}
+
+@media (max-width: 768px) {
+  .header {
+    height: 52px;
+    padding: 0 12px;
+    gap: 10px;
+  }
+
+  .header__brand-wrap {
+    flex: 1;
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .header__brand-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .header__brand-icon-main {
+    border-radius: 10px;
+  }
+
+  .header__brand-icon-badge {
+    width: 12px;
+    height: 12px;
+    right: -2px;
+    bottom: -2px;
+  }
+
+  .header__brand-title {
+    font-size: 12px;
+  }
+
+  .header__brand-subtitle {
+    font-size: 9px;
+  }
+
+  .header__right {
+    gap: 7px;
+    flex-shrink: 0;
+  }
+
+  .header__avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 13px;
+  }
+
+  .header__user-name {
+    max-width: 78px;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .header__role-badge {
+    font-size: 8px;
+    padding: 2px 6px;
+    line-height: 1.1;
+  }
 }

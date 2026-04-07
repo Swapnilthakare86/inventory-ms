@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { FiEdit2, FiPlus, FiSearch } from 'react-icons/fi';
+import { FiBox, FiEdit2, FiPlus, FiSearch, FiTrash2 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import API from '../../api/axios';
+import ConfirmModal from '../../components/ConfirmModal';
 
 const empty = { name: '', category_id: '', supplier_id: '', price: '', stock: '' };
 
@@ -62,6 +63,9 @@ const statusStyle = (stock) => {
 };
 
 export default function StaffProducts() {
+  const [viewportWidth, setViewportWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : 1280
+  );
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -72,6 +76,7 @@ export default function StaffProducts() {
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [stockFilter, setStockFilter] = useState('all');
+  const [deleteId, setDeleteId] = useState(null);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -91,6 +96,12 @@ export default function StaffProducts() {
 
   useEffect(() => {
     fetchAll();
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const openAdd = () => {
@@ -137,6 +148,18 @@ export default function StaffProducts() {
     }
   };
 
+  const handleDelete = async () => {
+    try {
+      await API.delete(`/products/${deleteId}`);
+      toast.success('Product deleted.');
+      fetchAll();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error deleting product.');
+    } finally {
+      setDeleteId(null);
+    }
+  };
+
   const filtered = products.filter((product) => {
     const matchSearch =
       product.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -154,15 +177,16 @@ export default function StaffProducts() {
   });
 
   const lowStockCount = products.filter((product) => product.stock <= 5).length;
+  const isMobile = viewportWidth <= 768;
 
   return (
-    <div className="p-4" style={{ background: UI.bg, minHeight: '100%' }}>
-      <div className="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div className="page" style={{ background: UI.bg, minHeight: '100%', padding: isMobile ? '12px 10px 16px' : '24px' }}>
+      <div className="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4" style={isMobile ? { gap: 10, marginBottom: 10 } : undefined}>
         <div>
-          <h3 className="fw-semibold mb-1" style={{ color: UI.text, fontSize: 18 }}>
+          <h3 className="fw-semibold mb-1" style={{ color: UI.text, fontSize: isMobile ? 15 : 18 }}>
             Products
           </h3>
-          <p className="mb-0" style={{ color: UI.muted, fontSize: 13 }}>
+          <p className="mb-0" style={{ color: UI.muted, fontSize: isMobile ? 11 : 13, lineHeight: 1.4, maxWidth: isMobile ? 280 : undefined }}>
             Monitor inventory and update product information quickly.
           </p>
         </div>
@@ -172,11 +196,12 @@ export default function StaffProducts() {
           onClick={openAdd}
           style={{
             borderRadius: 12,
-            padding: '10px 14px',
+            padding: isMobile ? '8px 12px' : '10px 14px',
             background: UI.primary,
             color: '#fff',
             fontWeight: 600,
-            fontSize: 13,
+            fontSize: isMobile ? 11.5 : 13,
+            minHeight: isMobile ? 36 : undefined,
             display: 'inline-flex',
             alignItems: 'center',
             gap: 8,
@@ -194,10 +219,10 @@ export default function StaffProducts() {
           style={{
             background: UI.warningSoft,
             border: '1px solid #f4df9a',
-            borderRadius: 14,
-            padding: '12px 14px',
+            borderRadius: isMobile ? 12 : 14,
+            padding: isMobile ? '8px 10px' : '12px 14px',
             color: '#8a6116',
-            fontSize: 13,
+            fontSize: isMobile ? 11.5 : 13,
             fontWeight: 500,
             display: 'inline-flex',
             alignItems: 'center',
@@ -205,7 +230,14 @@ export default function StaffProducts() {
             maxWidth: '100%',
           }}
         >
-          <strong>{lowStockCount} product(s)</strong> are low on stock or out of stock.
+          {isMobile ? (
+            <div style={{ lineHeight: 1.35 }}>
+              <div><strong>{lowStockCount} product(s)</strong> need attention.</div>
+              <div>Stock is low or unavailable.</div>
+            </div>
+          ) : (
+            <><strong>{lowStockCount} product(s)</strong> are low on stock or out of stock.</>
+          )}
         </div>
       )}
 
@@ -214,13 +246,13 @@ export default function StaffProducts() {
         style={{
           background: UI.card,
           border: `1px solid ${UI.border}`,
-          borderRadius: 18,
-          padding: 14,
+          borderRadius: isMobile ? 16 : 18,
+          padding: isMobile ? 10 : 14,
           boxShadow: UI.shadow,
         }}
       >
         <div className="d-flex flex-wrap gap-2 align-items-center">
-          <div className="position-relative" style={{ minWidth: 280, maxWidth: 520, flex: '1 1 420px' }}>
+          <div className="position-relative" style={{ minWidth: isMobile ? 0 : 280, maxWidth: 520, flex: '1 1 420px', width: isMobile ? '100%' : undefined }}>
             <FiSearch
               size={15}
               style={{
@@ -234,12 +266,12 @@ export default function StaffProducts() {
             <input
               className="form-control border-0"
               style={{
-                height: 44,
+                height: isMobile ? 40 : 44,
                 borderRadius: 12,
                 background: '#f8fafc',
                 paddingLeft: 40,
                 boxShadow: 'inset 0 0 0 1px #e5ebf3',
-                fontSize: 14,
+                fontSize: isMobile ? 12.5 : 14,
               }}
               placeholder="Search products..."
               value={search}
@@ -250,12 +282,12 @@ export default function StaffProducts() {
           <select
             className="form-select border-0"
             style={{
-              maxWidth: 180,
-              height: 44,
+              maxWidth: isMobile ? 132 : 180,
+              height: isMobile ? 40 : 44,
               borderRadius: 12,
               backgroundColor: '#f8fafc',
               boxShadow: 'inset 0 0 0 1px #e5ebf3',
-              fontSize: 14,
+              fontSize: isMobile ? 12.5 : 14,
             }}
             value={stockFilter}
             onChange={(e) => setStockFilter(e.target.value)}
@@ -276,105 +308,271 @@ export default function StaffProducts() {
           overflow: 'hidden',
         }}
       >
-        <div className="table-responsive">
-          <table className="table align-middle mb-0">
-            <thead style={{ background: '#f8fafc' }}>
-              <tr>
-                {['S NO', 'Name', 'Category', 'Supplier', 'Price', 'Stock', 'Status', 'Actions'].map((label) => (
-                  <th
-                    key={label}
+        {isMobile ? (
+          loading ? (
+            <div className="p-3">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="placeholder-glow"
+                  style={{
+                    border: '1px solid var(--border)',
+                    borderRadius: 14,
+                    padding: 10,
+                    marginBottom: 10,
+                    background: '#fff',
+                  }}
+                >
+                  <span className="placeholder rounded d-block mb-2" style={{ width: '100%', height: 18 }} />
+                  <span className="placeholder rounded d-block mb-2" style={{ width: '72%', height: 12 }} />
+                  <span className="placeholder rounded d-block mb-2" style={{ width: '100%', height: 56 }} />
+                  <span className="placeholder rounded d-block" style={{ width: '100%', height: 34 }} />
+                </div>
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="table-empty">No products found for the selected filters.</div>
+          ) : (
+            <div className="p-2">
+              {filtered.map((product, index) => {
+                const status = statusStyle(product.stock);
+                return (
+                  <div
+                    key={product.id}
                     style={{
-                      color: UI.muted,
-                      fontSize: 11,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      fontWeight: 700,
-                      padding: '16px 18px',
-                      borderBottom: `1px solid ${UI.border}`,
-                      whiteSpace: 'nowrap',
+                      background: status.rowColor,
+                      border: '1px solid var(--border)',
+                      borderRadius: 14,
+                      padding: 10,
+                      marginBottom: 10,
                     }}
                   >
-                    {label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+                    <div className="d-flex align-items-start gap-2 mb-2">
+                      <div
+                        style={{
+                          width: 46,
+                          height: 46,
+                          borderRadius: 10,
+                          background: '#eef3ff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          color: UI.primary,
+                        }}
+                      >
+                        <FiBox size={18} />
+                      </div>
 
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={8} className="text-center py-5" style={{ color: UI.muted }}>
-                    Loading products...
-                  </td>
-                </tr>
-              ) : filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="text-center py-5" style={{ color: UI.muted }}>
-                    No products found for the selected filters.
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((product, index) => {
-                  const status = statusStyle(product.stock);
-                  return (
-                    <tr
-                      key={product.id}
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div className="d-flex justify-content-between align-items-start gap-2">
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 11, color: UI.muted, fontWeight: 600 }}>
+                              S NO {index + 1}
+                            </div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: UI.text, lineHeight: 1.25 }}>
+                              {product.name}
+                            </div>
+                          </div>
+
+                          <span
+                            className="badge-status"
+                            style={{ fontSize: 10, padding: '4px 8px', flexShrink: 0, color: status.textColor, background: status.bgColor }}
+                          >
+                            {status.label}
+                          </span>
+                        </div>
+
+                        <div style={{ fontSize: 12, color: UI.muted, marginTop: 2 }}>
+                          {product.category_name}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
                       style={{
-                        background: status.rowColor,
-                        borderBottom: `1px solid ${UI.border}`,
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                        gap: 8,
+                        marginBottom: 10,
                       }}
                     >
-                      <td style={{ padding: '16px 18px', color: UI.text, fontWeight: 500, fontSize: 13 }}>
-                        {index + 1}
-                      </td>
-                      <td style={{ padding: '16px 18px' }}>
-                        <div style={{ color: UI.text, fontWeight: 600, fontSize: 13 }}>{product.name}</div>
-                      </td>
-                      <td style={{ padding: '16px 18px', color: UI.text, fontSize: 13 }}>{product.category_name}</td>
-                      <td style={{ padding: '16px 18px', color: UI.text, fontSize: 13 }}>{product.supplier_name}</td>
-                      <td style={{ padding: '16px 18px', color: UI.text, fontWeight: 600, fontSize: 13 }}>
-                        {formatPrice(product.price)}
-                      </td>
-                      <td style={{ padding: '16px 18px', color: UI.text, fontWeight: 600, fontSize: 13 }}>{product.stock}</td>
-                      <td style={{ padding: '16px 18px' }}>
-                        <span
+                      {[
+                        ['Supplier', product.supplier_name],
+                        ['Price', formatPrice(product.price)],
+                        ['Stock', product.stock],
+                        ['Category', product.category_name],
+                      ].map(([label, value]) => (
+                        <div
+                          key={label}
                           style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            padding: '5px 10px',
-                            borderRadius: 999,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            color: status.textColor,
-                            background: status.bgColor,
+                            background: '#f8fafc',
+                            border: '1px solid #e5ebf3',
+                            borderRadius: 10,
+                            padding: '8px 9px',
+                            minWidth: 0,
                           }}
                         >
-                          {status.label}
-                        </span>
-                      </td>
-                      <td style={{ padding: '16px 18px' }}>
-                        <button
-                          type="button"
-                          onClick={() => openEdit(product)}
-                          title="Edit product"
-                          aria-label={`Edit ${product.name}`}
-                          style={{
-                            ...actionButtonStyle,
-                            color: '#9a6700',
-                            background: '#fff4d6',
-                            borderColor: '#f2dfaa',
-                          }}
-                        >
-                          <FiEdit2 size={15} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                          <div style={{ fontSize: 10, color: UI.muted, fontWeight: 600, marginBottom: 2 }}>
+                            {label}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: UI.text,
+                              fontWeight: 600,
+                              lineHeight: 1.3,
+                              wordBreak: 'break-word',
+                            }}
+                          >
+                            {value}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="d-flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(product)}
+                        className="action-btn action-btn--edit"
+                        title="Edit"
+                        style={{ flex: 1, width: 'auto', borderRadius: 12 }}
+                      >
+                        <FiEdit2 size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteId(product.id)}
+                        className="action-btn action-btn--delete"
+                        title="Delete"
+                        style={{ flex: 1, width: 'auto', borderRadius: 12 }}
+                      >
+                        <FiTrash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )
+        ) : (
+          <div className="table-responsive">
+            <table className="table align-middle mb-0">
+              <thead style={{ background: '#f8fafc' }}>
+                <tr>
+                  {['S NO', 'Name', 'Category', 'Supplier', 'Price', 'Stock', 'Status', 'Actions'].map((label) => (
+                    <th
+                      key={label}
+                      style={{
+                        color: UI.muted,
+                        fontSize: 11,
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                        fontWeight: 700,
+                        padding: '16px 18px',
+                        borderBottom: `1px solid ${UI.border}`,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="text-center py-5" style={{ color: UI.muted }}>
+                      Loading products...
+                    </td>
+                  </tr>
+                ) : filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="text-center py-5" style={{ color: UI.muted }}>
+                      No products found for the selected filters.
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((product, index) => {
+                    const status = statusStyle(product.stock);
+                    return (
+                      <tr
+                        key={product.id}
+                        style={{
+                          background: status.rowColor,
+                          borderBottom: `1px solid ${UI.border}`,
+                        }}
+                      >
+                        <td style={{ padding: '16px 18px', color: UI.text, fontWeight: 500, fontSize: 13 }}>
+                          {index + 1}
+                        </td>
+                        <td style={{ padding: '16px 18px' }}>
+                          <div style={{ color: UI.text, fontWeight: 600, fontSize: 13 }}>{product.name}</div>
+                        </td>
+                        <td style={{ padding: '16px 18px', color: UI.text, fontSize: 13 }}>{product.category_name}</td>
+                        <td style={{ padding: '16px 18px', color: UI.text, fontSize: 13 }}>{product.supplier_name}</td>
+                        <td style={{ padding: '16px 18px', color: UI.text, fontWeight: 600, fontSize: 13 }}>
+                          {formatPrice(product.price)}
+                        </td>
+                        <td style={{ padding: '16px 18px', color: UI.text, fontWeight: 600, fontSize: 13 }}>{product.stock}</td>
+                        <td style={{ padding: '16px 18px' }}>
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              padding: '5px 10px',
+                              borderRadius: 999,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color: status.textColor,
+                              background: status.bgColor,
+                            }}
+                          >
+                            {status.label}
+                          </span>
+                        </td>
+                        <td style={{ padding: '16px 18px' }}>
+                          <div className="d-flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(product)}
+                              title="Edit product"
+                              aria-label={`Edit ${product.name}`}
+                              style={{
+                                ...actionButtonStyle,
+                                color: '#9a6700',
+                                background: '#fff4d6',
+                                borderColor: '#f2dfaa',
+                              }}
+                            >
+                              <FiEdit2 size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeleteId(product.id)}
+                              title="Delete product"
+                              aria-label={`Delete ${product.name}`}
+                              style={{
+                                ...actionButtonStyle,
+                                color: UI.danger,
+                                background: '#fff5f5',
+                                borderColor: '#f4caca',
+                              }}
+                            >
+                              <FiTrash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {showModal && (
@@ -525,6 +723,14 @@ export default function StaffProducts() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        show={!!deleteId}
+        title="Delete Product"
+        message="This will permanently delete the product. Are you sure?"
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteId(null)}
+      />
     </div>
   );
 }
