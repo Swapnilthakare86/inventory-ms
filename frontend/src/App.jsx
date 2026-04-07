@@ -10,6 +10,8 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 
 const Login           = lazy(() => import('./pages/Login'));
 const Register        = lazy(() => import('./pages/Register'));
+const ForgotPassword  = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword   = lazy(() => import('./pages/ResetPassword'));
 const AdminDashboard  = lazy(() => import('./pages/admin/Dashboard'));
 const AdminProducts   = lazy(() => import('./pages/admin/Products'));
 const AdminCategories = lazy(() => import('./pages/admin/Categories'));
@@ -43,11 +45,11 @@ const NotFound = () => (
 
 function AppLayout({ children }) {
   return (
-    <div className="d-flex" style={{ minHeight: '100vh' }}>
+    <div className="app-shell d-flex" style={{ minHeight: '100vh' }}>
       <Sidebar />
-      <div className="d-flex flex-column flex-grow-1" style={{ background: '#f4f5f7' }}>
+      <div className="app-shell__main d-flex flex-column flex-grow-1" style={{ background: '#f4f5f7' }}>
         <Header />
-        <div className="flex-grow-1" style={{ overflowY: 'auto' }}>{children}</div>
+        <div className="app-shell__content flex-grow-1" style={{ overflowY: 'auto' }}>{children}</div>
         <Footer />
       </div>
     </div>
@@ -70,8 +72,10 @@ export default function App() {
       <BrowserRouter>
         <Suspense fallback={<Loader />}>
           <Routes>
-            <Route path="/login"    element={<PublicLayout><Login /></PublicLayout>} />
-            <Route path="/register" element={<PublicLayout><Register /></PublicLayout>} />
+            <Route path="/login"          element={<PublicLayout><Login /></PublicLayout>} />
+            <Route path="/register"        element={<PublicLayout><Register /></PublicLayout>} />
+            <Route path="/forgot-password" element={<PublicLayout><ForgotPassword /></PublicLayout>} />
+            <Route path="/reset-password/:token" element={<PublicLayout><ResetPassword /></PublicLayout>} />
 
             <Route path="/admin/*" element={
               <PrivateRoute role="admin">

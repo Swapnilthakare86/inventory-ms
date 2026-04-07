@@ -139,9 +139,11 @@ export default function Login() {
         </div>
 
         <div className="mb-3">
-          <label htmlFor="password" className="form-label" style={{ color: UI.text, fontWeight: 600, fontSize: 13 }}>
-            Password
-          </label>
+          <div className="d-flex justify-content-between align-items-center">
+            <label htmlFor="password" className="form-label" style={{ color: UI.text, fontWeight: 600, fontSize: 13 }}>
+              Password
+            </label>
+          </div>
           <div className="input-group">
             <span
               className="input-group-text border-end-0"
@@ -172,6 +174,11 @@ export default function Login() {
               {showPassword ? <FiEyeOff size={16} /> : <FiEye size={16} />}
             </button>
             {errors.password && <div id="passwordError" className="invalid-feedback d-block">{errors.password}</div>}
+          </div>
+          <div className="d-flex justify-content-end mt-1">
+            <Link to="/forgot-password" style={{ color: UI.primary, fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>
+              Forgot password?
+            </Link>
           </div>
         </div>
 
