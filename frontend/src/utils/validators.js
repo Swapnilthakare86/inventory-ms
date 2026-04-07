@@ -41,6 +41,14 @@ export const validateRegister = ({ name, email, password, confirmPassword, addre
   return errors;
 };
 
+export const validatePassword = (password) => {
+  if (!password) return 'Password is required';
+  if (password.length < 8) return 'Min 8 characters required';
+  if (!/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/.test(password))
+    return 'Must include uppercase, number & special character';
+  return null;
+};
+
 export const passwordStrength = (password) => {
   if (!password) return null;
   const strong = password.length >= 8 && PASSWORD_REGEX.test(password);
