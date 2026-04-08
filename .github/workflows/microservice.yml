@@ -1,0 +1,29 @@
+name: Deploy Microservice
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'microservice/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/inventory-ms
+            git pull origin main
+            cd microservice
+            pip install -r requirements.txt
+            pm2 restart microservice
+            pm2 status
