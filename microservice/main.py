@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from app.routes.charts  import router as charts_router
 from app.routes.exports import router as exports_router
 
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 app = FastAPI(
     title="Inventory MS — Python Microservice",
@@ -37,5 +37,5 @@ def health():
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5001))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+    port = int(os.getenv("MICRO_PORT", 5001))
+    uvicorn.run(app, host="0.0.0.0", port=port)
