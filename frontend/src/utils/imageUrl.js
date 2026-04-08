@@ -27,14 +27,7 @@ export const toStoredImagePath = (value) => {
   }
 
   if (/^https?:\/\//i.test(text)) {
-    try {
-      const parsed = new URL(text);
-      if (parsed.pathname.startsWith('/uploads/')) {
-        return parsed.pathname;
-      }
-    } catch {
-      return text;
-    }
+    return text;
   }
 
   return text;
