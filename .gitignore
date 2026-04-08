@@ -1,6 +1,63 @@
-node_modules/
+#Environment files
 .env
+.env.example
+.env.*.local
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Backend specific
+backend/logs/
+backend/uploads/
+
+#Frontend build
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vite/
+frontend/*.local
+
+# Python
 __pycache__/
-*.pyc
-.DS_Store
+*.py[cod]
+*.pyo
+*.pyd
+.Python
 venv/
+env/
+.venv/
+*.egg-info/
+dist/
+build/
+*.pyc
+
+# Docker
+docker-compose.override.yml
+
+# OS files
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE / Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+
+# Misc
+*.local
+.cache/
+coverage/
