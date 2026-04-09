@@ -267,6 +267,11 @@ export default function Dashboard({ isAdmin = false }) {
   const compact = viewportWidth <= 1100;
   const chartHeight = isMobile ? 240 : isTablet ? 220 : 180;
   const pieHeight = isMobile ? 220 : isTablet ? 210 : 170;
+  const orderSummaryItems = [
+    { label: 'Placed', count: orderStatus.find((o) => o.status === 'placed')?.count || 0, color: C.warning },
+    { label: 'Received', count: orderStatus.find((o) => o.status === 'received')?.count || 0, color: C.success },
+    { label: 'Cancelled', count: orderStatus.find((o) => o.status === 'cancelled')?.count || 0, color: C.danger },
+  ];
 
   const statsCards = [
     { label: 'Total Products', value: stats.products, icon: HiOutlineCube, color: C.primary },
@@ -357,7 +362,7 @@ export default function Dashboard({ isAdmin = false }) {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr 1fr' : '54% 22% 20%',
+          gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr 1fr' : 'minmax(0, 2fr) repeat(2, minmax(0, 1fr))',
           gap: isMobile ? 10 : 8,
           minWidth: 0,
         }}
@@ -378,8 +383,8 @@ export default function Dashboard({ isAdmin = false }) {
           </div>
         </div>
 
-        <div style={chartCard}>
-          <CardTitle compact={compact}>Order Status</CardTitle>
+        <div style={{ ...chartCard, justifyContent: 'space-between' }}>
+          <CardTitle compact={compact}>Order Summary</CardTitle>
           <div style={{ minHeight: pieHeight, width: '100%' }}>
             <ResponsiveContainer width="100%" height={pieHeight}>
               <PieChart>
@@ -391,6 +396,32 @@ export default function Dashboard({ isAdmin = false }) {
                 <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
               </PieChart>
             </ResponsiveContainer>
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gap: 8,
+              marginTop: 6,
+            }}
+          >
+            {orderSummaryItems.map(({ label, count, color }) => (
+              <div
+                key={label}
+                style={{
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 10,
+                  padding: compact ? '8px 10px' : '10px 12px',
+                  minWidth: 0,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                  <span style={{ fontSize: compact ? 11 : 12, color: C.muted, whiteSpace: 'nowrap' }}>{label}</span>
+                </div>
+                <div style={{ fontSize: compact ? 16 : 18, fontWeight: 700, color: C.text }}>{count}</div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -470,7 +501,7 @@ export default function Dashboard({ isAdmin = false }) {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr 1fr' : '26% 26% 28% 16%',
+          gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr 1fr' : 'repeat(3, minmax(0, 1fr))',
           gap: isMobile ? 10 : 8,
           minWidth: 0,
         }}
@@ -605,34 +636,6 @@ export default function Dashboard({ isAdmin = false }) {
           </div>
         </div>
 
-        <div
-          style={{
-            ...card,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-            justifyContent: 'center',
-            alignItems: 'flex-start',
-            minWidth: 0,
-            overflow: 'hidden',
-            ...(isTablet ? { gridColumn: '1 / -1' } : null),
-          }}
-        >
-          <CardTitle compact={compact}>Quick Summary</CardTitle>
-          {[
-            { label: 'Placed', count: orderStatus.find((o) => o.status === 'placed')?.count || 0, color: C.warning },
-            { label: 'Received', count: orderStatus.find((o) => o.status === 'received')?.count || 0, color: C.success },
-            { label: 'Cancelled', count: orderStatus.find((o) => o.status === 'cancelled')?.count || 0, color: C.danger },
-          ].map(({ label, count, color }) => (
-            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
-                <span style={{ fontSize: compact ? 12 : 13, color: C.muted }}>{label}</span>
-              </div>
-              <span style={{ fontSize: compact ? 15 : 16, fontWeight: 700, color: C.text }}>{count}</span>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );
