@@ -69,7 +69,7 @@ export default function ResetPassword() {
 
       {success ? (
         <div className="mb-3 auth-alert auth-alert--success" role="status">
-          ✅ {success}
+          {success}
           <div className="mt-2" style={{ fontSize: 12, color: UI.muted }}>Redirecting to login...</div>
         </div>
       ) : (
