@@ -259,17 +259,18 @@ export default function Dashboard({ isAdmin = false }) {
         </div>
       )}
 
-      {/* Stat cards - horizontal scroll row for mobile */}
+      {/* Stat cards - horizontal row for mobile, no scrollbar, wrap if needed */}
       <div
         style={
           isMobile
             ? {
                 display: 'flex',
                 flexDirection: 'row',
+                flexWrap: 'wrap',
                 gap: 10,
-                overflowX: 'auto',
                 paddingBottom: 4,
                 marginBottom: 6,
+                justifyContent: 'flex-start',
               }
             : {
                 display: 'grid',
@@ -286,7 +287,7 @@ export default function Dashboard({ isAdmin = false }) {
                 ? {
                     minWidth: 170,
                     maxWidth: 180,
-                    flex: '0 0 auto',
+                    flex: '1 1 45%',
                   }
                 : undefined
             }
