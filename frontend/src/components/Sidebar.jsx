@@ -31,12 +31,14 @@ export default function Sidebar() {
     { to: '/staff/products',  label: 'Products',  icon: <FiBox /> },
     { to: '/staff/orders',    label: 'Orders',    icon: <FiShoppingCart /> },
     { to: '/staff/profile',   label: 'Profile',   icon: <FiUser /> },
+    { logout: true },
   ];
 
   const userLinks = [
     { to: '/user/products', label: 'Products', icon: <FiBox /> },
     { to: '/user/orders',   label: 'Orders',   icon: <FiShoppingCart /> },
     { to: '/user/profile',  label: 'Profile',  icon: <FiUser /> },
+    { logout: true },
   ];
 
   const links = user?.role === 'admin' ? adminLinks : user?.role === 'staff' ? staffLinks : userLinks;
