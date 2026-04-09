@@ -33,7 +33,6 @@ const fmtKey = (v) => new Date(v).toISOString().slice(0, 10);
 // ── Date filter helpers ──────────────────────────────────────────
 const DATE_FILTERS = [
   { key: 'today', label: 'Today' },
-  { key: 'week',  label: 'This Week' },
   { key: 'month', label: 'This Month' },
   { key: 'all',   label: 'All' },
 ];
@@ -157,7 +156,7 @@ export default function Dashboard({ isAdmin = false }) {
   const [stockByCategory, setStockByCategory] = useState([]);
   const [lowStockProducts, setLowStockProducts] = useState([]);
   const [showAlert, setShowAlert] = useState(true);
-  const [dateFilter, setDateFilter] = useState('week');
+  const [dateFilter, setDateFilter] = useState('today');
   const [revenueTrend, setRevenueTrend] = useState({ pct: null, up: true });
 
   const fetchData = () => {
@@ -211,18 +210,21 @@ export default function Dashboard({ isAdmin = false }) {
   ];
 
   const statsCards = [
-    { label: 'Total Products',  value: stats.products,       icon: HiOutlineCube,                color: C.primary },
-    { label: 'Total Stock',     value: stats.stock,          icon: HiOutlineArchiveBox,          color: C.success },
-    { label: 'Orders Today',    value: stats.ordersToday,    icon: HiOutlineShoppingCart,        color: C.warning },
+    { label: 'Total Products',  value: stats.products,         icon: HiOutlineCube,                color: C.primary },
+    { label: 'Total Stock',     value: stats.stock,            icon: HiOutlineArchiveBox,          color: C.success },
+    { label: 'Orders',          value: filteredOrdersCount,    icon: HiOutlineShoppingCart,        color: C.warning },
     {
       label: 'Revenue',
-      value: `₹${stats.revenue}`,
+      value: `₹${filteredRevenue}`,
       icon: HiOutlineCurrencyRupee,
       color: C.purple,
       trend: revenueTrend.pct !== null ? revenueTrend : null,
     },
     { label: 'Low Stock', value: stats.lowStock, icon: HiOutlineExclamationTriangle, color: stats.lowStock > 0 ? C.danger : C.muted },
   ];
+
+  // filtered orders count for stat card
+  const filteredOrdersCount = filteredOrders.length;
 
   return (
     <div style={{ background: C.bg, padding: isMobile ? '10px' : '14px', minHeight: '100%', display: 'flex', flexDirection: 'column', gap: 10, boxSizing: 'border-box', width: '100%', overflowX: 'hidden' }}>
@@ -271,17 +273,10 @@ export default function Dashboard({ isAdmin = false }) {
         {/* Line chart with filter label */}
         <div style={chartCard}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
-              Orders & Revenue
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 11, color: C.muted }}>
-                {DATE_FILTERS.find((f) => f.key === dateFilter)?.label}
-              </span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: C.purple }}>
-                ₹{filteredRevenue}
-              </span>
-            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Orders & Revenue</div>
+            <span style={{ fontSize: 11, color: C.muted }}>
+              {DATE_FILTERS.find((f) => f.key === dateFilter)?.label}
+            </span>
           </div>
           <ResponsiveContainer width="100%" height={areaChartH}>
             <LineChart data={ordersPerDay} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
