@@ -2,637 +2,383 @@ import { useEffect, useState } from 'react';
 import API from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import {
-  HiOutlineCube,
-  HiOutlineArchiveBox,
-  HiOutlineShoppingCart,
-  HiOutlineCurrencyRupee,
-  HiOutlineExclamationTriangle,
+  HiOutlineCube, HiOutlineArchiveBox, HiOutlineShoppingCart,
+  HiOutlineCurrencyRupee, HiOutlineExclamationTriangle,
+  HiOutlineArrowTrendingUp, HiOutlineArrowTrendingDown,
+  HiXMark, HiOutlineEye,
 } from 'react-icons/hi2';
 
-const STATUS_COLORS = {
-  cancelled: '#DC2626',
-  received: '#16A34A',
-  placed: '#2563EB',
+/* ─── Design tokens ─────────────────────────────────────────────── */
+const T = {
+  bg:      '#F5F6FA',
+  card:    '#FFFFFF',
+  border:  '#EAECF0',
+  text:    '#101828',
+  sub:     '#344054',
+  muted:   '#667085',
+  label:   '#98A2B3',
+  blue:    '#2563EB',
+  teal:    '#0D9488',
+  orange:  '#EA580C',
+  purple:  '#7C3AED',
+  red:     '#DC2626',
+  green:   '#16A34A',
+  shadow:  '0 1px 3px rgba(16,24,40,0.08), 0 1px 2px rgba(16,24,40,0.04)',
+  shadowHover: '0 4px 16px rgba(16,24,40,0.12)',
 };
 
-const C = {
-  primary: '#2563EB',
-  success: '#16A34A',
-  warning: '#D97706',
-  danger: '#DC2626',
-  purple: '#7C3AED',
-  bg: '#F1F5F9',
-  card: '#FFFFFF',
-  border: '#E2E8F0',
-  text: '#0F172A',
-  muted: '#64748B',
-  label: '#94A3B8',
+const STAT_CARDS = (stats) => [
+  { label: 'Total Products',  value: stats.products,        icon: HiOutlineCube,                color: T.blue,   bg: '#EFF6FF', trend: '+2',  up: true  },
+  { label: 'Total Stock',     value: stats.stock,           icon: HiOutlineArchiveBox,          color: T.teal,   bg: '#F0FDFA', trend: '+5%', up: true  },
+  { label: 'Orders Today',    value: stats.ordersToday,     icon: HiOutlineShoppingCart,        color: T.orange, bg: '#FFF7ED', trend: '+12%',up: true  },
+  { label: 'Revenue',         value: `₹${stats.revenue}`,  icon: HiOutlineCurrencyRupee,       color: T.purple, bg: '#F5F3FF', trend: '+8%', up: true  },
+  { label: 'Low Stock Items', value: stats.lowStock,        icon: HiOutlineExclamationTriangle, color: stats.lowStock > 0 ? T.red : T.muted, bg: stats.lowStock > 0 ? '#FEF2F2' : '#F9FAFB', trend: stats.lowStock > 0 ? '↑' : '—', up: false },
+];
+
+const STATUS_COLOR = {
+  placed:    { color: '#B45309', bg: '#FFFBEB', dot: '#F59E0B' },
+  received:  { color: '#15803D', bg: '#F0FDF4', dot: '#22C55E' },
+  cancelled: { color: '#B91C1C', bg: '#FEF2F2', dot: '#EF4444' },
 };
 
-const card = {
-  background: C.card,
-  borderRadius: 10,
-  border: `1px solid ${C.border}`,
-  boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-  padding: '10px',
-};
+const PIE_COLORS = ['#F59E0B', '#22C55E', '#EF4444'];
 
-const chartCard = {
-  ...card,
-  display: 'flex',
-  flexDirection: 'column',
-  minHeight: 0,
-  minWidth: 0,
-  width: '100%',
-};
-
-const formatDateKey = (value) => new Date(value).toISOString().slice(0, 10);
+/* ─── Helpers ───────────────────────────────────────────────────── */
+const fmtDate = (v) => new Date(v).toISOString().slice(0, 10);
 
 const buildOrdersPerDay = (orders) => {
-  const last30 = new Date();
-  last30.setDate(last30.getDate() - 30);
-
-  const grouped = orders.reduce((acc, order) => {
-    const orderDate = new Date(order.order_date);
-    if (orderDate < last30) return acc;
-
-    const key = formatDateKey(order.order_date);
-    if (!acc[key]) acc[key] = { date: key, count: 0, revenue: 0 };
-
-    acc[key].count += 1;
-    if (order.status === 'received') {
-      acc[key].revenue += parseFloat(order.total_price || 0);
-    }
-
-    return acc;
-  }, {});
-
-  return Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date));
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
+  const map = {};
+  orders.forEach((o) => {
+    if (new Date(o.order_date) < cutoff) return;
+    const k = fmtDate(o.order_date);
+    if (!map[k]) map[k] = { date: k, count: 0, revenue: 0 };
+    map[k].count += 1;
+    if (o.status === 'received') map[k].revenue += parseFloat(o.total_price || 0);
+  });
+  return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
 };
 
 const buildStockByCategory = (products) => {
-  const grouped = products.reduce((acc, product) => {
-    const key = product.category_name || 'Uncategorized';
-    acc[key] = (acc[key] || 0) + Number(product.stock || 0);
-    return acc;
-  }, {});
-
-  return Object.entries(grouped).map(([category, total_stock]) => ({ category, total_stock }));
+  const map = {};
+  products.forEach((p) => { const k = p.category_name || 'Other'; map[k] = (map[k] || 0) + Number(p.stock || 0); });
+  return Object.entries(map).map(([category, total_stock]) => ({ category, total_stock }));
 };
 
 const buildTopProducts = (orders) => {
-  const grouped = orders.reduce((acc, order) => {
-    if (order.status === 'cancelled') return acc;
-    const key = order.product_name || 'Unknown';
-    acc[key] = (acc[key] || 0) + Number(order.quantity || 0);
-    return acc;
-  }, {});
-
-  return Object.entries(grouped)
-    .map(([name, total_sold]) => ({ name, total_sold }))
-    .sort((a, b) => b.total_sold - a.total_sold)
-    .slice(0, 5);
+  const map = {};
+  orders.forEach((o) => { if (o.status === 'cancelled') return; const k = o.product_name || 'Unknown'; map[k] = (map[k] || 0) + Number(o.quantity || 0); });
+  return Object.entries(map).map(([name, total_sold]) => ({ name, total_sold })).sort((a, b) => b.total_sold - a.total_sold).slice(0, 5);
 };
 
 const buildOrderStatus = (orders) => {
-  const grouped = orders.reduce((acc, order) => {
-    const key = order.status || 'unknown';
-    acc[key] = (acc[key] || 0) + 1;
-    return acc;
-  }, {});
-
-  return Object.entries(grouped).map(([status, count]) => ({ status, count }));
+  const map = {};
+  orders.forEach((o) => { const k = o.status || 'unknown'; map[k] = (map[k] || 0) + 1; });
+  return Object.entries(map).map(([status, count]) => ({ status, count }));
 };
 
-const StatCard = ({ label, value, icon: Icon, color, compact = false, mobile = false }) => (
-  <div
-    style={{
-      ...card,
-      padding: mobile ? '8px 10px' : compact ? '10px 12px' : '10px 16px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: mobile ? 8 : compact ? 10 : 14,
-      minHeight: mobile ? 62 : compact ? 72 : 80,
-      height: '100%',
-    }}
-  >
-    <div
-      style={{
-        width: mobile ? 30 : compact ? 34 : 38,
-        height: mobile ? 30 : compact ? 34 : 38,
-        borderRadius: mobile ? 9 : compact ? 10 : 8,
-        background: `${color}18`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-      }}
-    >
-      <Icon size={mobile ? 16 : compact ? 18 : 20} color={color} />
-    </div>
-    <div style={{ minWidth: 0 }}>
-      <div
-        style={{
-          fontSize: mobile ? 10 : compact ? 11 : 12,
-          fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '0.4px',
-          color: C.muted,
-          lineHeight: 1.3,
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          fontSize: mobile ? 14 : compact ? 18 : 22,
-          fontWeight: 700,
-          color: C.text,
-          lineHeight: 1.2,
-          wordBreak: 'break-word',
-        }}
-      >
-        {value}
-      </div>
-    </div>
-  </div>
-);
-
-const CardTitle = ({ children, compact = false }) => (
-  <div style={{ fontSize: compact ? 13 : 14, fontWeight: 600, color: '#374151', marginBottom: 8 }}>
+/* ─── Sub-components ────────────────────────────────────────────── */
+const SectionLabel = ({ children }) => (
+  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.muted, marginBottom: 12 }}>
     {children}
   </div>
 );
 
-const StatusBadge = ({ status }) => {
-  const map = {
-    placed: [C.warning, '#FFFBEB'],
-    received: [C.success, '#F0FDF4'],
-    cancelled: [C.danger, '#FFF5F5'],
-  };
-  const [color, bg] = map[status] || [C.muted, '#F8FAFC'];
+const Card = ({ children, style = {} }) => (
+  <div style={{ background: T.card, borderRadius: 14, border: `1px solid ${T.border}`, boxShadow: T.shadow, padding: 20, transition: 'box-shadow 0.2s', ...style }}
+    onMouseEnter={e => e.currentTarget.style.boxShadow = T.shadowHover}
+    onMouseLeave={e => e.currentTarget.style.boxShadow = T.shadow}>
+    {children}
+  </div>
+);
 
+const StatCard = ({ label, value, icon: Icon, color, bg, trend, up }) => (
+  <div style={{ background: T.card, borderRadius: 14, border: `1px solid ${T.border}`, boxShadow: T.shadow, padding: '18px 20px', borderLeft: `4px solid ${color}`, transition: 'box-shadow 0.2s', cursor: 'default' }}
+    onMouseEnter={e => e.currentTarget.style.boxShadow = T.shadowHover}
+    onMouseLeave={e => e.currentTarget.style.boxShadow = T.shadow}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+      <div style={{ width: 40, height: 40, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Icon size={20} color={color} />
+      </div>
+      <span style={{ fontSize: 11, fontWeight: 600, color: up ? T.green : T.red, background: up ? '#F0FDF4' : '#FEF2F2', padding: '2px 8px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 2 }}>
+        {up ? <HiOutlineArrowTrendingUp size={11} /> : <HiOutlineArrowTrendingDown size={11} />}
+        {trend}
+      </span>
+    </div>
+    <div style={{ fontSize: 28, fontWeight: 600, color: T.text, lineHeight: 1.1, marginBottom: 4 }}>{value}</div>
+    <div style={{ fontSize: 13, color: T.muted, fontWeight: 500 }}>{label}</div>
+  </div>
+);
+
+const StatusPill = ({ status }) => {
+  const s = STATUS_COLOR[status] || { color: T.muted, bg: '#F9FAFB', dot: T.muted };
   return (
-    <span
-      style={{
-        fontSize: 11,
-        fontWeight: 600,
-        padding: '3px 10px',
-        borderRadius: 20,
-        background: bg,
-        color,
-        whiteSpace: 'nowrap',
-      }}
-    >
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: s.bg, color: s.color }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.dot, flexShrink: 0 }} />
       {status}
     </span>
   );
 };
 
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 14px', boxShadow: T.shadow, fontSize: 12 }}>
+      <div style={{ fontWeight: 600, color: T.text, marginBottom: 6 }}>{label}</div>
+      {payload.map((p) => (
+        <div key={p.name} style={{ color: p.color, marginBottom: 2 }}>{p.name}: <strong>{p.value}</strong></div>
+      ))}
+    </div>
+  );
+};
+
+const DonutLabel = ({ cx, cy, total }) => (
+  <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central">
+    <tspan x={cx} dy="-6" style={{ fontSize: 20, fontWeight: 700, fill: T.text }}>{total}</tspan>
+    <tspan x={cx} dy="20" style={{ fontSize: 11, fill: T.muted }}>Total</tspan>
+  </text>
+);
+
+/* ─── Main component ────────────────────────────────────────────── */
 export default function Dashboard({ isAdmin = false }) {
   const { user } = useAuth();
-  const [viewportWidth, setViewportWidth] = useState(
-    typeof window !== 'undefined' ? window.innerWidth : 1280
-  );
-  const [stats, setStats] = useState({
-    products: 0,
-    stock: 0,
-    ordersToday: 0,
-    revenue: 0,
-    lowStock: 0,
-  });
+  const [stats, setStats]               = useState({ products: 0, stock: 0, ordersToday: 0, revenue: 0, lowStock: 0 });
   const [ordersPerDay, setOrdersPerDay] = useState([]);
   const [stockByCategory, setStockByCategory] = useState([]);
-  const [topProducts, setTopProducts] = useState([]);
-  const [orderStatus, setOrderStatus] = useState([]);
+  const [topProducts, setTopProducts]   = useState([]);
+  const [orderStatus, setOrderStatus]   = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
   const [lowStockProducts, setLowStockProducts] = useState([]);
-  const [showAlert, setShowAlert] = useState(true);
+  const [showAlert, setShowAlert]       = useState(true);
+  const [orderSearch, setOrderSearch]   = useState('');
 
   const fetchData = () => {
-    API.get('/products')
-      .then((r) => {
-        const prods = r.data;
-        const low = prods.filter((p) => p.stock <= 5);
-        setStockByCategory(buildStockByCategory(prods));
-        setLowStockProducts(low);
-        setStats((s) => ({
-          ...s,
-          products: prods.length,
-          stock: prods.reduce((a, p) => a + p.stock, 0),
-          lowStock: low.length,
-        }));
-      })
-      .catch(() => {});
+    API.get('/products').then((r) => {
+      const prods = r.data;
+      const low = prods.filter((p) => p.stock <= 5);
+      setStockByCategory(buildStockByCategory(prods));
+      setLowStockProducts(low);
+      setStats((s) => ({ ...s, products: prods.length, stock: prods.reduce((a, p) => a + p.stock, 0), lowStock: low.length }));
+    }).catch(() => {});
 
-    API.get('/orders')
-      .then((r) => {
-        const orders = r.data;
-        const today = new Date().toDateString();
-        const revenue = orders
-          .filter((o) => o.status === 'received')
-          .reduce((a, o) => a + parseFloat(o.total_price || 0), 0);
-
-        setOrdersPerDay(buildOrdersPerDay(orders));
-        setTopProducts(buildTopProducts(orders));
-        setOrderStatus(buildOrderStatus(orders));
-        setRecentOrders(orders.slice(0, 4));
-        setStats((s) => ({
-          ...s,
-          ordersToday: orders.filter((o) => new Date(o.order_date).toDateString() === today).length,
-          revenue: revenue.toFixed(2),
-        }));
-      })
-      .catch(() => {});
+    API.get('/orders').then((r) => {
+      const orders = r.data;
+      const today = new Date().toDateString();
+      const revenue = orders.filter((o) => o.status === 'received').reduce((a, o) => a + parseFloat(o.total_price || 0), 0);
+      setOrdersPerDay(buildOrdersPerDay(orders));
+      setTopProducts(buildTopProducts(orders));
+      setOrderStatus(buildOrderStatus(orders));
+      setRecentOrders(orders.slice(0, 8));
+      setStats((s) => ({ ...s, ordersToday: orders.filter((o) => new Date(o.order_date).toDateString() === today).length, revenue: revenue.toFixed(2) }));
+    }).catch(() => {});
   };
 
-  useEffect(() => {
-    fetchData();
-    const timer = setInterval(fetchData, 30000);
-    return () => clearInterval(timer);
-  }, []);
+  useEffect(() => { fetchData(); const t = setInterval(fetchData, 60000); return () => clearInterval(t); }, []);
 
-  useEffect(() => {
-    const handleResize = () => setViewportWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const isMobile = viewportWidth <= 768;
-  const isTablet = viewportWidth > 768 && viewportWidth <= 1100;
-  const compact = viewportWidth <= 1100;
-  const chartHeight = isMobile ? 240 : isTablet ? 220 : 180;
-  const pieHeight = isMobile ? 220 : isTablet ? 210 : 170;
-
-  const statsCards = [
-    { label: 'Total Products', value: stats.products, icon: HiOutlineCube, color: C.primary },
-    { label: 'Total Stock', value: stats.stock, icon: HiOutlineArchiveBox, color: C.success },
-    { label: 'Orders Today', value: stats.ordersToday, icon: HiOutlineShoppingCart, color: C.warning },
-    { label: 'Revenue', value: `${stats.revenue}`, icon: HiOutlineCurrencyRupee, color: C.purple },
-    { label: 'Low Stock', value: stats.lowStock, icon: HiOutlineExclamationTriangle, color: stats.lowStock > 0 ? C.danger : C.muted },
-  ];
+  const totalOrders = orderStatus.reduce((a, o) => a + o.count, 0);
+  const filteredOrders = recentOrders.filter((o) =>
+    !orderSearch || o.user_name?.toLowerCase().includes(orderSearch.toLowerCase()) || o.product_name?.toLowerCase().includes(orderSearch.toLowerCase())
+  );
 
   return (
-    <div
-      style={{
-        background: C.bg,
-        padding: isMobile ? '10px' : compact ? '12px' : '12px 10px 12px 16px',
-        minHeight: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: isMobile ? 12 : 10,
-        boxSizing: 'border-box',
-        width: '100%',
-        overflowX: 'hidden',
-      }}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, flexShrink: 0 }}>
-        {(isAdmin || user?.role === 'staff') && (
-          <span style={{ fontSize: isMobile ? 11 : 12, fontWeight: 500, color: C.muted }}>
-            Welcome back, {user?.name || (isAdmin ? 'Admin' : 'Staff')}
-          </span>
-        )}
-        <span style={{ fontSize: isMobile ? 16 : 18, fontWeight: 700, color: C.text }}>Dashboard</span>
+    <div style={{ background: T.bg, minHeight: '100%', padding: '24px 24px 32px', fontFamily: "'Inter', 'DM Sans', system-ui, sans-serif", boxSizing: 'border-box' }}>
+
+      {/* ── Page header ── */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 22, fontWeight: 700, color: T.text, marginBottom: 2 }}>Dashboard</div>
+        <div style={{ fontSize: 14, color: T.muted }}>Welcome back, <strong style={{ color: T.sub }}>{user?.name}</strong> — here's what's happening today.</div>
       </div>
 
+      {/* ── Low stock alert ── */}
       {showAlert && stats.lowStock > 0 && (
-        <div
-          style={{
-            flexShrink: 0,
-            minHeight: isMobile ? 34 : 36,
-            background: '#FFFBEB',
-            border: '1px solid #FDE68A',
-            borderRadius: 8,
-            display: 'inline-flex',
-            alignItems: 'center',
-            padding: '0 12px',
-            gap: 8,
-            fontSize: isMobile ? 12 : 14,
-            color: '#92400E',
-            width: isMobile ? '100%' : 'fit-content',
-            maxWidth: '100%',
-          }}
-        >
-          <HiOutlineExclamationTriangle size={15} />
-          <strong>{stats.lowStock} product(s)</strong> are low on stock or out of stock.
-          <button
-            onClick={() => setShowAlert(false)}
-            style={{
-              marginLeft: 'auto',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: 15,
-              color: '#92400E',
-              lineHeight: 1,
-            }}
-          >
-            x
+        <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <HiOutlineExclamationTriangle size={18} color="#D97706" />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#92400E' }}>
+              <strong>{stats.lowStock} product{stats.lowStock > 1 ? 's' : ''}</strong> are running low on stock
+            </div>
+            <div style={{ fontSize: 12, color: '#B45309', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <HiOutlineEye size={13} /> View affected products below
+            </div>
+          </div>
+          <button onClick={() => setShowAlert(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#92400E', padding: 4, borderRadius: 6, display: 'flex' }}>
+            <HiXMark size={18} />
           </button>
         </div>
       )}
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: isMobile
-            ? 'repeat(2, minmax(0, 1fr))'
-            : isTablet
-              ? 'repeat(3, minmax(0, 1fr))'
-              : 'repeat(5, minmax(0, 1fr))',
-          gap: isMobile ? 8 : 8,
-        }}
-      >
-        {statsCards.map((item, index) => (
-          <div key={item.label} style={isMobile && index === statsCards.length - 1 ? { gridColumn: '1 / -1' } : undefined}>
-            <StatCard label={item.label} value={item.value} icon={item.icon} color={item.color} compact={compact} mobile={isMobile} />
-          </div>
-        ))}
+      {/* ── Stat cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 24 }}>
+        {STAT_CARDS(stats).map((c) => <StatCard key={c.label} {...c} />)}
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr 1fr' : '54% 22% 20%',
-          gap: isMobile ? 10 : 8,
-          minWidth: 0,
-        }}
-      >
-        <div style={chartCard}>
-          <CardTitle compact={compact}>Orders & Revenue - Last 30 Days</CardTitle>
-          <div style={{ minHeight: chartHeight, width: '100%' }}>
-            <ResponsiveContainer width="100%" height={chartHeight}>
-              <LineChart data={ordersPerDay} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="count" stroke={C.primary} strokeWidth={2} dot={false} name="Orders" />
-                <Line type="monotone" dataKey="revenue" stroke={C.success} strokeWidth={2} dot={false} name="Revenue" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+      {/* ── Charts row 1 ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16, marginBottom: 16 }}>
 
-        <div style={chartCard}>
-          <CardTitle compact={compact}>Order Status</CardTitle>
-          <div style={{ minHeight: pieHeight, width: '100%' }}>
-            <ResponsiveContainer width="100%" height={pieHeight}>
-              <PieChart>
-                <Pie data={orderStatus} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius="65%" label={({ count }) => count}>
-                  {orderStatus.map((entry, i) => (
-                    <Cell key={i} fill={STATUS_COLORS[entry.status] || '#2563EB'} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        {/* Area chart */}
+        <Card>
+          <SectionLabel>Orders & Revenue — Last 30 Days</SectionLabel>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={ordersPerDay} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="gradOrders" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor={T.blue}  stopOpacity={0.15} />
+                  <stop offset="95%" stopColor={T.blue}  stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor={T.teal}  stopOpacity={0.15} />
+                  <stop offset="95%" stopColor={T.teal}  stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: T.muted }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: T.muted }} tickLine={false} axisLine={false} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+              <Area type="monotone" dataKey="count"   stroke={T.blue} strokeWidth={2} fill="url(#gradOrders)"  name="Orders"  dot={false} />
+              <Area type="monotone" dataKey="revenue" stroke={T.teal} strokeWidth={2} fill="url(#gradRevenue)" name="Revenue" dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </Card>
 
-        <div
-          style={{
-            ...card,
-            display: 'flex',
-            flexDirection: 'column',
-            minWidth: 0,
-            overflow: 'hidden',
-            ...(isTablet ? { gridColumn: '1 / -1' } : null),
-          }}
-        >
-          <CardTitle compact={compact}>Low Stock</CardTitle>
+        {/* Donut pie */}
+        <Card style={{ display: 'flex', flexDirection: 'column' }}>
+          <SectionLabel>Order Status</SectionLabel>
+          <ResponsiveContainer width="100%" height={180}>
+            <PieChart>
+              <Pie data={orderStatus} dataKey="count" nameKey="status" cx="50%" cy="50%"
+                innerRadius="52%" outerRadius="75%">
+                {orderStatus.map((entry, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                <DonutLabel cx="50%" cy="50%" total={totalOrders} />
+              </Pie>
+              <Tooltip content={<CustomTooltip />} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+            {[
+              { label: 'Placed',    key: 'placed',    color: PIE_COLORS[0] },
+              { label: 'Received',  key: 'received',  color: PIE_COLORS[1] },
+              { label: 'Cancelled', key: 'cancelled', color: PIE_COLORS[2] },
+            ].map(({ label, key, color }) => {
+              const count = orderStatus.find((o) => o.status === key)?.count || 0;
+              const pct   = totalOrders ? Math.round((count / totalOrders) * 100) : 0;
+              return (
+                <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
+                    <span style={{ fontSize: 12, color: T.muted }}>{label}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{count}</span>
+                    <span style={{ fontSize: 11, color: T.label }}>{pct}%</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+
+      {/* ── Charts row 2 ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+        <Card>
+          <SectionLabel>Stock by Category</SectionLabel>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={stockByCategory} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+              <XAxis dataKey="category" tick={{ fontSize: 11, fill: T.muted }} tickLine={false} axisLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: T.muted }} tickLine={false} axisLine={false} />
+              <Tooltip content={<CustomTooltip />} />
+              <Bar dataKey="total_stock" name="Stock" radius={[6, 6, 0, 0]}>
+                {stockByCategory.map((e, i) => <Cell key={i} fill={e.total_stock <= 5 ? T.red : T.blue} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+
+        <Card>
+          <SectionLabel>Top 5 Products by Sales</SectionLabel>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={topProducts} layout="vertical" margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <XAxis type="number" tick={{ fontSize: 11, fill: T.muted }} tickLine={false} axisLine={false} />
+              <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: T.muted }} tickLine={false} axisLine={false} width={80} />
+              <Tooltip content={<CustomTooltip />} />
+              <Bar dataKey="total_sold" fill={T.teal} name="Sold" radius={[0, 6, 6, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
+      {/* ── Bottom row: Recent Orders + Low Stock ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16 }}>
+
+        {/* Recent Orders table */}
+        <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '16px 20px 12px', borderBottom: `1px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.muted }}>Recent Orders</div>
+            <input
+              placeholder="Search orders..."
+              value={orderSearch}
+              onChange={(e) => setOrderSearch(e.target.value)}
+              style={{ height: 32, borderRadius: 8, border: `1px solid ${T.border}`, padding: '0 12px', fontSize: 12, color: T.text, outline: 'none', width: 180, background: T.bg }}
+            />
+          </div>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', minWidth: isMobile ? 320 : '100%', borderCollapse: 'collapse' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
-                <tr>
-                  {['Product', 'Qty', 'Status'].map((h) => (
-                    <th
-                      key={h}
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        textTransform: 'uppercase',
-                        color: C.label,
-                        padding: '4px 6px',
-                        textAlign: 'left',
-                        borderBottom: `1px solid ${C.border}`,
-                      }}
-                    >
-                      {h}
-                    </th>
+                <tr style={{ background: T.bg }}>
+                  {['Customer', 'Product', 'Total', 'Date', 'Status'].map((h) => (
+                    <th key={h} style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: T.label, padding: '10px 16px', textAlign: 'left', borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {lowStockProducts.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} style={{ fontSize: 12, color: C.muted, padding: '12px 6px', textAlign: 'center' }}>
-                      All in stock
-                    </td>
+                {filteredOrders.length === 0 ? (
+                  <tr><td colSpan={5} style={{ textAlign: 'center', padding: '24px', color: T.muted, fontSize: 13 }}>No orders found</td></tr>
+                ) : filteredOrders.map((o, i) => (
+                  <tr key={o.id} style={{ background: i % 2 === 0 ? T.card : '#FAFAFA', borderBottom: `1px solid ${T.border}` }}>
+                    <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: T.text, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.user_name}</td>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: T.muted, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.product_name}</td>
+                    <td style={{ padding: '12px 16px', fontSize: 13, fontWeight: 600, color: T.text, whiteSpace: 'nowrap' }}>₹{parseFloat(o.total_price).toFixed(0)}</td>
+                    <td style={{ padding: '12px 16px', fontSize: 12, color: T.muted, whiteSpace: 'nowrap' }}>{new Date(o.order_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</td>
+                    <td style={{ padding: '12px 16px' }}><StatusPill status={o.status} /></td>
                   </tr>
-                ) : (
-                  lowStockProducts.slice(0, 4).map((p) => (
-                    <tr key={p.id} style={{ height: 34 }}>
-                      <td style={{ fontSize: 12, padding: '3px 6px', color: C.text, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {p.name}
-                      </td>
-                      <td style={{ fontSize: 12, padding: '3px 6px', fontWeight: 700, color: p.stock === 0 ? C.danger : C.warning }}>
-                        {p.stock}
-                      </td>
-                      <td style={{ padding: '3px 6px' }}>
-                        <span
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 600,
-                            padding: '3px 8px',
-                            borderRadius: 20,
-                            background: p.stock === 0 ? '#FFF5F5' : '#FFFBEB',
-                            color: p.stock === 0 ? C.danger : C.warning,
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {p.stock === 0 ? 'Out' : 'Low'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
           </div>
-        </div>
-      </div>
+        </Card>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr 1fr' : '26% 26% 28% 16%',
-          gap: isMobile ? 10 : 8,
-          minWidth: 0,
-        }}
-      >
-        <div style={chartCard}>
-          <CardTitle compact={compact}>Stock by Category</CardTitle>
-          <div style={{ minHeight: chartHeight, width: '100%' }}>
-            <ResponsiveContainer width="100%" height={chartHeight}>
-              <BarChart data={stockByCategory} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                <XAxis dataKey="category" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                <Bar dataKey="total_stock" name="Stock" radius={[4, 4, 0, 0]}>
-                  {stockByCategory.map((entry, index) => (
-                    <Cell key={`stock-cell-${index}`} fill={entry.total_stock <= 5 ? C.danger : C.primary} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+        {/* Low Stock */}
+        <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '16px 20px 12px', borderBottom: `1px solid ${T.border}` }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.muted }}>Low Stock Products</div>
           </div>
-        </div>
-
-        <div style={chartCard}>
-          <CardTitle compact={compact}>Top 5 Products by Sales</CardTitle>
-          <div style={{ minHeight: chartHeight, width: '100%' }}>
-            <ResponsiveContainer width="100%" height={chartHeight}>
-              <BarChart data={topProducts} layout="vertical" margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <XAxis type="number" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={78} />
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                <Bar dataKey="total_sold" fill={C.success} name="Sold" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div
-          style={{
-            ...card,
-            display: 'flex',
-            flexDirection: 'column',
-            minWidth: 0,
-            overflow: 'hidden',
-            ...(isTablet ? { gridColumn: '1 / -1' } : null),
-          }}
-        >
-          <CardTitle compact={compact}>Recent Orders</CardTitle>
-          <div style={{ overflowX: 'hidden' }}>
-            <table
-              style={{
-                width: '100%',
-                minWidth: '100%',
-                borderCollapse: 'collapse',
-                tableLayout: isMobile ? 'fixed' : 'auto',
-              }}
-            >
-              <thead>
-                <tr>
-                  {['Customer', 'Product', 'Total', 'Status'].map((h) => (
-                    <th
-                      key={h}
-                      style={{
-                        fontSize: isMobile ? 10 : 11,
-                        fontWeight: 600,
-                        textTransform: 'uppercase',
-                        color: C.label,
-                        padding: isMobile ? '4px 4px' : '4px 6px',
-                        textAlign: 'left',
-                        borderBottom: `1px solid ${C.border}`,
-                        width: isMobile
-                          ? h === 'Customer'
-                            ? '31%'
-                            : h === 'Product'
-                              ? '29%'
-                              : h === 'Total'
-                                ? '22%'
-                                : '18%'
-                          : 'auto',
-                      }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {recentOrders.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} style={{ fontSize: 12, color: C.muted, padding: '12px 6px', textAlign: 'center' }}>
-                      No orders yet
-                    </td>
-                  </tr>
-                ) : (
-                  recentOrders.map((o) => (
-                    <tr key={o.id} style={{ height: 34 }}>
-                      <td style={{ fontSize: isMobile ? 11 : 12, padding: isMobile ? '3px 4px' : '3px 6px', color: C.text, maxWidth: isMobile ? 74 : 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {o.user_name}
-                      </td>
-                      <td style={{ fontSize: isMobile ? 11 : 12, padding: isMobile ? '3px 4px' : '3px 6px', color: C.muted, maxWidth: isMobile ? 72 : 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {o.product_name}
-                      </td>
-                      <td style={{ fontSize: isMobile ? 11 : 12, padding: isMobile ? '3px 4px' : '3px 6px', color: C.text, whiteSpace: 'nowrap' }}>
-                        {isMobile ? `Rs.${parseFloat(o.total_price).toFixed(0)}` : `Rs. ${parseFloat(o.total_price).toFixed(0)}`}
-                      </td>
-                      <td style={{ padding: isMobile ? '3px 4px' : '3px 6px' }}>
-                        {isMobile ? (
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: 9,
-                              fontWeight: 600,
-                              padding: '2px 5px',
-                              borderRadius: 999,
-                              background: o.status === 'received' ? '#F0FDF4' : o.status === 'cancelled' ? '#FFF5F5' : '#FFFBEB',
-                              color: o.status === 'received' ? C.success : o.status === 'cancelled' ? C.danger : C.warning,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {o.status}
-                          </span>
-                        ) : (
-                          <StatusBadge status={o.status} />
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div
-          style={{
-            ...card,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-            justifyContent: 'center',
-            alignItems: 'flex-start',
-            minWidth: 0,
-            overflow: 'hidden',
-            ...(isTablet ? { gridColumn: '1 / -1' } : null),
-          }}
-        >
-          <CardTitle compact={compact}>Quick Summary</CardTitle>
-          {[
-            { label: 'Placed', count: orderStatus.find((o) => o.status === 'placed')?.count || 0, color: C.warning },
-            { label: 'Received', count: orderStatus.find((o) => o.status === 'received')?.count || 0, color: C.success },
-            { label: 'Cancelled', count: orderStatus.find((o) => o.status === 'cancelled')?.count || 0, color: C.danger },
-          ].map(({ label, count, color }) => (
-            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
-                <span style={{ fontSize: compact ? 12 : 13, color: C.muted }}>{label}</span>
-              </div>
-              <span style={{ fontSize: compact ? 15 : 16, fontWeight: 700, color: C.text }}>{count}</span>
+          {lowStockProducts.length === 0 ? (
+            <div style={{ padding: 24, textAlign: 'center', color: T.muted, fontSize: 13 }}>✅ All products in stock</div>
+          ) : (
+            <div style={{ padding: '8px 0' }}>
+              {lowStockProducts.slice(0, 6).map((p) => (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', borderBottom: `1px solid ${T.border}` }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                    <div style={{ fontSize: 11, color: T.muted, marginTop: 1 }}>{p.category_name || 'Uncategorized'}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: p.stock === 0 ? T.red : T.orange }}>{p.stock}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: p.stock === 0 ? '#FEF2F2' : '#FFFBEB', color: p.stock === 0 ? T.red : T.orange }}>
+                      {p.stock === 0 ? 'Out' : 'Low'}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </Card>
       </div>
     </div>
   );
