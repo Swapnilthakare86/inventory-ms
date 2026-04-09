@@ -33,6 +33,7 @@ const fmtKey = (v) => new Date(v).toISOString().slice(0, 10);
 // ── Date filter helpers ──────────────────────────────────────────
 const DATE_FILTERS = [
   { key: 'today', label: 'Today' },
+  { key: 'week', label: 'This Week' },
   { key: 'month', label: 'This Month' },
   { key: 'all',   label: 'All' },
 ];
