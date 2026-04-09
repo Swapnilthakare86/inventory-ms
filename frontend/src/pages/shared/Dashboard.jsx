@@ -407,9 +407,6 @@ export default function Dashboard({ isAdmin = false }) {
         <div style={{ ...card, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', ...(isTablet ? { gridColumn: '1 / -1' } : {}) }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Recent Orders</div>
-            <span style={{ fontSize: 11, color: C.muted, background: C.bg, padding: '2px 8px', borderRadius: 6, border: `1px solid ${C.border}` }}>
-              {filteredOrders.length} orders
-            </span>
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
             <thead>
