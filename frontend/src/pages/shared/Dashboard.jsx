@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import API from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -8,6 +8,7 @@ import {
 import {
   HiOutlineCube, HiOutlineArchiveBox, HiOutlineShoppingCart,
   HiOutlineCurrencyRupee, HiOutlineExclamationTriangle,
+  HiOutlineArrowTrendingUp, HiOutlineArrowTrendingDown,
 } from 'react-icons/hi2';
 
 const STATUS_COLORS = { cancelled: '#DC2626', received: '#16A34A', placed: '#2563EB' };
@@ -29,11 +30,34 @@ const chartCard = { ...card, display: 'flex', flexDirection: 'column', minHeight
 
 const fmtKey = (v) => new Date(v).toISOString().slice(0, 10);
 
+// ── Date filter helpers ──────────────────────────────────────────
+const DATE_FILTERS = [
+  { key: 'today', label: 'Today' },
+  { key: 'week',  label: 'This Week' },
+  { key: 'month', label: 'This Month' },
+  { key: 'all',   label: 'All' },
+];
+
+const filterOrdersByDate = (orders, filter) => {
+  const now = new Date();
+  if (filter === 'today') {
+    return orders.filter((o) => new Date(o.order_date).toDateString() === now.toDateString());
+  }
+  if (filter === 'week') {
+    const start = new Date(now); start.setDate(now.getDate() - 7);
+    return orders.filter((o) => new Date(o.order_date) >= start);
+  }
+  if (filter === 'month') {
+    const start = new Date(now); start.setDate(now.getDate() - 30);
+    return orders.filter((o) => new Date(o.order_date) >= start);
+  }
+  return orders;
+};
+
+// ── Chart builders ───────────────────────────────────────────────
 const buildOrdersPerDay = (orders) => {
-  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
   const map = {};
   orders.forEach((o) => {
-    if (new Date(o.order_date) < cutoff) return;
     const k = fmtKey(o.order_date);
     if (!map[k]) map[k] = { date: k, count: 0, revenue: 0 };
     map[k].count += 1;
@@ -60,14 +84,44 @@ const buildOrderStatus = (orders) => {
   return Object.entries(map).map(([status, count]) => ({ status, count }));
 };
 
-const StatCard = ({ label, value, icon: Icon, color }) => (
+// ── Revenue trend helper ─────────────────────────────────────────
+const calcRevenueTrend = (allOrders) => {
+  const now = new Date();
+  const thisWeekStart = new Date(now); thisWeekStart.setDate(now.getDate() - 7);
+  const lastWeekStart = new Date(now); lastWeekStart.setDate(now.getDate() - 14);
+
+  const thisWeek = allOrders
+    .filter((o) => o.status === 'received' && new Date(o.order_date) >= thisWeekStart)
+    .reduce((a, o) => a + parseFloat(o.total_price || 0), 0);
+
+  const lastWeek = allOrders
+    .filter((o) => o.status === 'received' && new Date(o.order_date) >= lastWeekStart && new Date(o.order_date) < thisWeekStart)
+    .reduce((a, o) => a + parseFloat(o.total_price || 0), 0);
+
+  if (lastWeek === 0) return { pct: null, up: true };
+  const pct = (((thisWeek - lastWeek) / lastWeek) * 100).toFixed(1);
+  return { pct, up: parseFloat(pct) >= 0 };
+};
+
+// ── Sub-components ───────────────────────────────────────────────
+const StatCard = ({ label, value, icon: Icon, color, trend }) => (
   <div style={{ ...card, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, height: '100%' }}>
     <div style={{ width: 42, height: 42, borderRadius: 10, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
       <Icon size={20} color={color} />
     </div>
-    <div style={{ minWidth: 0 }}>
+    <div style={{ minWidth: 0, flex: 1 }}>
       <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', color: C.muted, lineHeight: 1.3 }}>{label}</div>
       <div style={{ fontSize: 22, fontWeight: 700, color: C.text, lineHeight: 1.2 }}>{value}</div>
+      {trend && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
+          {trend.up
+            ? <HiOutlineArrowTrendingUp size={12} color={C.success} />
+            : <HiOutlineArrowTrendingDown size={12} color={C.danger} />}
+          <span style={{ fontSize: 11, fontWeight: 600, color: trend.up ? C.success : C.danger }}>
+            {trend.up ? '+' : ''}{trend.pct}% vs last week
+          </span>
+        </div>
+      )}
     </div>
   </div>
 );
@@ -82,17 +136,29 @@ const StatusBadge = ({ status }) => {
   return <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: bg, color, whiteSpace: 'nowrap' }}>{status}</span>;
 };
 
+const FilterBtn = ({ active, onClick, children }) => (
+  <button onClick={onClick} style={{
+    padding: '4px 10px', fontSize: 12, fontWeight: 600, borderRadius: 6, cursor: 'pointer',
+    border: `1px solid ${active ? C.primary : C.border}`,
+    background: active ? C.primary : C.card,
+    color: active ? '#fff' : C.muted,
+    transition: 'all 0.15s',
+  }}>
+    {children}
+  </button>
+);
+
+// ── Main component ───────────────────────────────────────────────
 export default function Dashboard({ isAdmin = false }) {
   const { user } = useAuth();
   const [vw, setVw] = useState(typeof window !== 'undefined' ? window.innerWidth : 1280);
+  const [allOrders, setAllOrders] = useState([]);
   const [stats, setStats] = useState({ products: 0, stock: 0, ordersToday: 0, revenue: 0, lowStock: 0 });
-  const [ordersPerDay, setOrdersPerDay] = useState([]);
   const [stockByCategory, setStockByCategory] = useState([]);
-  const [topProducts, setTopProducts] = useState([]);
-  const [orderStatus, setOrderStatus] = useState([]);
-  const [recentOrders, setRecentOrders] = useState([]);
   const [lowStockProducts, setLowStockProducts] = useState([]);
   const [showAlert, setShowAlert] = useState(true);
+  const [dateFilter, setDateFilter] = useState('week');
+  const [revenueTrend, setRevenueTrend] = useState({ pct: null, up: true });
 
   const fetchData = () => {
     API.get('/products').then((r) => {
@@ -107,20 +173,34 @@ export default function Dashboard({ isAdmin = false }) {
       const orders = r.data;
       const today = new Date().toDateString();
       const revenue = orders.filter((o) => o.status === 'received').reduce((a, o) => a + parseFloat(o.total_price || 0), 0);
-      setOrdersPerDay(buildOrdersPerDay(orders));
-      setTopProducts(buildTopProducts(orders));
-      setOrderStatus(buildOrderStatus(orders));
-      setRecentOrders(orders.slice(0, 4));
-      setStats((s) => ({ ...s, ordersToday: orders.filter((o) => new Date(o.order_date).toDateString() === today).length, revenue: revenue.toFixed(2) }));
+      setAllOrders(orders);
+      setRevenueTrend(calcRevenueTrend(orders));
+      setStats((s) => ({
+        ...s,
+        ordersToday: orders.filter((o) => new Date(o.order_date).toDateString() === today).length,
+        revenue: revenue.toFixed(2),
+      }));
     }).catch(() => {});
   };
 
   useEffect(() => { fetchData(); const t = setInterval(fetchData, 60000); return () => clearInterval(t); }, []);
   useEffect(() => { const fn = () => setVw(window.innerWidth); window.addEventListener('resize', fn); return () => window.removeEventListener('resize', fn); }, []);
 
+  // ── Derived data from date filter ──────────────────────────────
+  const filteredOrders = useMemo(() => filterOrdersByDate(allOrders, dateFilter), [allOrders, dateFilter]);
+
+  const ordersPerDay   = useMemo(() => buildOrdersPerDay(filteredOrders),  [filteredOrders]);
+  const topProducts    = useMemo(() => buildTopProducts(filteredOrders),    [filteredOrders]);
+  const orderStatus    = useMemo(() => buildOrderStatus(filteredOrders),    [filteredOrders]);
+  const recentOrders   = useMemo(() => filteredOrders.slice(0, 5),          [filteredOrders]);
+
+  const filteredRevenue = useMemo(() =>
+    filteredOrders.filter((o) => o.status === 'received').reduce((a, o) => a + parseFloat(o.total_price || 0), 0).toFixed(2),
+    [filteredOrders]
+  );
+
   const isMobile = vw <= 768;
   const isTablet = vw > 768 && vw <= 1100;
-
   const areaChartH  = isMobile ? 240 : isTablet ? 220 : 260;
   const smallChartH = isMobile ? 200 : isTablet ? 190 : 200;
 
@@ -134,19 +214,37 @@ export default function Dashboard({ isAdmin = false }) {
     { label: 'Total Products',  value: stats.products,       icon: HiOutlineCube,                color: C.primary },
     { label: 'Total Stock',     value: stats.stock,          icon: HiOutlineArchiveBox,          color: C.success },
     { label: 'Orders Today',    value: stats.ordersToday,    icon: HiOutlineShoppingCart,        color: C.warning },
-    { label: 'Revenue',         value: `₹${stats.revenue}`, icon: HiOutlineCurrencyRupee,       color: C.purple  },
-    { label: 'Low Stock',       value: stats.lowStock,       icon: HiOutlineExclamationTriangle, color: stats.lowStock > 0 ? C.danger : C.muted },
+    {
+      label: 'Revenue',
+      value: `₹${stats.revenue}`,
+      icon: HiOutlineCurrencyRupee,
+      color: C.purple,
+      trend: revenueTrend.pct !== null ? revenueTrend : null,
+    },
+    { label: 'Low Stock', value: stats.lowStock, icon: HiOutlineExclamationTriangle, color: stats.lowStock > 0 ? C.danger : C.muted },
   ];
 
   return (
     <div style={{ background: C.bg, padding: isMobile ? '10px' : '14px', minHeight: '100%', display: 'flex', flexDirection: 'column', gap: 10, boxSizing: 'border-box', width: '100%', overflowX: 'hidden' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {(isAdmin || user?.role === 'staff') && (
-          <span style={{ fontSize: 12, fontWeight: 500, color: C.muted }}>Welcome back, {user?.name}</span>
-        )}
-        <span style={{ fontSize: 18, fontWeight: 700, color: C.text }}>Dashboard</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {(isAdmin || user?.role === 'staff') && (
+            <span style={{ fontSize: 12, fontWeight: 500, color: C.muted }}>Welcome back, {user?.name}</span>
+          )}
+          <span style={{ fontSize: 18, fontWeight: 700, color: C.text }}>Dashboard</span>
+        </div>
+
+        {/* Global date filter */}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <span style={{ fontSize: 12, color: C.muted, fontWeight: 500 }}>Show:</span>
+          {DATE_FILTERS.map((f) => (
+            <FilterBtn key={f.key} active={dateFilter === f.key} onClick={() => setDateFilter(f.key)}>
+              {f.label}
+            </FilterBtn>
+          ))}
+        </div>
       </div>
 
       {/* Alert */}
@@ -158,7 +256,7 @@ export default function Dashboard({ isAdmin = false }) {
         </div>
       )}
 
-      {/* Stat cards — 5 equal columns */}
+      {/* Stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : isTablet ? 'repeat(3, 1fr)' : 'repeat(5, 1fr)', gap: 10 }}>
         {statsCards.map((item, i) => (
           <div key={item.label} style={isMobile && i === statsCards.length - 1 ? { gridColumn: '1 / -1' } : undefined}>
@@ -167,12 +265,24 @@ export default function Dashboard({ isAdmin = false }) {
         ))}
       </div>
 
-      {/* Row 1 — Area chart (large) + Order Summary + Low Stock */}
+      {/* Row 1 — Chart + Order Summary + Low Stock */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr 1fr' : '3fr 1.2fr 1fr', gap: 10, minWidth: 0 }}>
 
-        {/* Area chart — prominent */}
+        {/* Line chart with filter label */}
         <div style={chartCard}>
-          <CardTitle>Orders & Revenue — Last 30 Days</CardTitle>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
+              Orders & Revenue
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 11, color: C.muted }}>
+                {DATE_FILTERS.find((f) => f.key === dateFilter)?.label}
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: C.purple }}>
+                ₹{filteredRevenue}
+              </span>
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={areaChartH}>
             <LineChart data={ordersPerDay} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
@@ -185,7 +295,7 @@ export default function Dashboard({ isAdmin = false }) {
           </ResponsiveContainer>
         </div>
 
-        {/* Order Summary + Pie */}
+        {/* Order Summary */}
         <div style={{ ...chartCard, justifyContent: 'space-between' }}>
           <CardTitle>Order Summary</CardTitle>
           <ResponsiveContainer width="100%" height={smallChartH}>
@@ -268,8 +378,14 @@ export default function Dashboard({ isAdmin = false }) {
           </ResponsiveContainer>
         </div>
 
+        {/* Recent Orders — filtered by date */}
         <div style={{ ...card, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', ...(isTablet ? { gridColumn: '1 / -1' } : {}) }}>
-          <CardTitle>Recent Orders</CardTitle>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Recent Orders</div>
+            <span style={{ fontSize: 11, color: C.muted, background: C.bg, padding: '2px 8px', borderRadius: 6, border: `1px solid ${C.border}` }}>
+              {filteredOrders.length} orders
+            </span>
+          </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
             <thead>
               <tr>
@@ -280,7 +396,9 @@ export default function Dashboard({ isAdmin = false }) {
             </thead>
             <tbody>
               {recentOrders.length === 0 ? (
-                <tr><td colSpan={4} style={{ fontSize: 12, color: C.muted, padding: '12px 6px', textAlign: 'center' }}>No orders yet</td></tr>
+                <tr><td colSpan={4} style={{ fontSize: 12, color: C.muted, padding: '16px 6px', textAlign: 'center' }}>
+                  No orders for {DATE_FILTERS.find((f) => f.key === dateFilter)?.label.toLowerCase()}
+                </td></tr>
               ) : recentOrders.map((o) => (
                 <tr key={o.id} style={{ height: 32 }}>
                   <td style={{ fontSize: 12, padding: '3px 6px', color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.user_name}</td>
