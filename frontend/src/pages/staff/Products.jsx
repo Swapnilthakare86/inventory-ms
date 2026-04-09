@@ -1,63 +1,4 @@
 export { default } from '../admin/Products';
-
-  const fetchAll = async () => {
-    setLoading(true);
-    try {
-      const [productRes, categoryRes, supplierRes] = await Promise.all([
-        API.get('/products'),
-        API.get('/categories'),
-        API.get('/suppliers'),
-      ]);
-      setProducts(productRes.data);
-      setCategories(categoryRes.data);
-      setSuppliers(supplierRes.data);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAll();
-  }, []);
-
-  useEffect(() => {
-    const handleResize = () => setViewportWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const openAdd = () => {
-    setForm(empty);
-    setEditId(null);
-    setShowModal(true);
-  };
-
-  const openEdit = (product) => {
-    setForm({
-      name: product.name,
-      category_id: product.category_id,
-      supplier_id: product.supplier_id,
-      price: product.price,
-      stock: product.stock,
-    });
-    setEditId(product.id);
-    setShowModal(true);
-  };
-
-  const closeModal = () => {
-    setShowModal(false);
-    setEditId(null);
-    setForm(empty);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      if (editId) {
-        await API.put(`/products/${editId}`, form);
-        toast.success('Product updated.');
-      } else {
         await API.post('/products', form);
         toast.success('Product created.');
       }
@@ -655,4 +596,4 @@ export { default } from '../admin/Products';
       />
     </div>
   );
-}
+
