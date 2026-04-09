@@ -259,14 +259,38 @@ export default function Dashboard({ isAdmin = false }) {
         </div>
       )}
 
-      {/* Stat cards - single column for mobile */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(3, 1fr)' : 'repeat(5, 1fr)',
-        gap: 10
-      }}>
+      {/* Stat cards - horizontal scroll row for mobile */}
+      <div
+        style={
+          isMobile
+            ? {
+                display: 'flex',
+                flexDirection: 'row',
+                gap: 10,
+                overflowX: 'auto',
+                paddingBottom: 4,
+                marginBottom: 6,
+              }
+            : {
+                display: 'grid',
+                gridTemplateColumns: isTablet ? 'repeat(3, 1fr)' : 'repeat(5, 1fr)',
+                gap: 10,
+              }
+        }
+      >
         {statsCards.map((item, i) => (
-          <div key={item.label}>
+          <div
+            key={item.label}
+            style={
+              isMobile
+                ? {
+                    minWidth: 170,
+                    maxWidth: 180,
+                    flex: '0 0 auto',
+                  }
+                : undefined
+            }
+          >
             <StatCard {...item} />
           </div>
         ))}
