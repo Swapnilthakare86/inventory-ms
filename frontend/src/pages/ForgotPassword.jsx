@@ -52,7 +52,7 @@ export default function ForgotPassword() {
 
       {success ? (
         <div className="mb-3 auth-alert auth-alert--success" role="status">
-          ✅ {success}
+          {success}
           <div className="mt-2" style={{ fontSize: 12, color: UI.muted }}>
             Check your inbox and follow the link to reset your password.
           </div>
