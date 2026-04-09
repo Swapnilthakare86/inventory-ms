@@ -64,7 +64,7 @@ const buildOrdersPerDay = (orders) => {
     if (!acc[key]) acc[key] = { date: key, count: 0, revenue: 0 };
 
     acc[key].count += 1;
-    if (order.status !== 'cancelled') {
+    if (order.status === 'received') {
       acc[key].revenue += parseFloat(order.total_price || 0);
     }
 
@@ -234,7 +234,7 @@ export default function Dashboard({ isAdmin = false }) {
         const orders = r.data;
         const today = new Date().toDateString();
         const revenue = orders
-          .filter((o) => o.status !== 'cancelled')
+          .filter((o) => o.status === 'received')
           .reduce((a, o) => a + parseFloat(o.total_price || 0), 0);
 
         setOrdersPerDay(buildOrdersPerDay(orders));

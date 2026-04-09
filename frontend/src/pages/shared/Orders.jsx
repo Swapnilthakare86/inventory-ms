@@ -71,7 +71,7 @@ export default function SharedOrders() {
   const filtered  = filter === 'all' ? dateScopedOrders : dateScopedOrders.filter(o => o.status === filter);
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   const countOf   = (s) => dateScopedOrders.filter(o => o.status === s).length;
-  const revenue   = dateScopedOrders.filter(o => o.status !== 'cancelled').reduce((a, o) => a + parseFloat(o.total_price || 0), 0);
+  const revenue   = dateScopedOrders.filter(o => o.status === 'received').reduce((a, o) => a + parseFloat(o.total_price || 0), 0);
   const activeDateLabel = DATE_OPTIONS.find(([v]) => v === dateFilter)?.[1] || 'All Time';
   const isMobile = viewportWidth <= 768;
 
