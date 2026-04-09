@@ -9,8 +9,10 @@ require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') }
 
 const app = express();
 
-// Security headers
-app.use(helmet());
+// Security headers — allow cross-origin for uploaded images
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 
 // Restrict CORS to frontend only
 const allowedOrigins = [
