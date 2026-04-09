@@ -24,20 +24,22 @@
   font-size: 14px;
 }
 
-.sidebar__toggle {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: rgba(255,255,255,0.5);
-  padding: 0;
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-}
-
-.sidebar__toggle:hover { color: #fff; }
-
-.sidebar__nav { flex: 1; padding: 8px 0; }
+  .sidebar__logout {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 18px;
+    border-radius: 8px;
+    background: #e24b4a;
+    color: #fff;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    border: none;
+    width: 100%;
+    margin-top: 8px;
+    transition: background 0.15s, color 0.15s;
+  }
 
 .sidebar__link {
   display: flex;
