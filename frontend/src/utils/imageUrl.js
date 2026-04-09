@@ -42,12 +42,5 @@ export const normalizeImageUrl = (value) => {
   }
 
   const backendOrigin = getBackendOrigin();
-
-  if (/^https?:\/\//i.test(normalizedPath)) {
-    return `${backendOrigin}/api/upload/file?src=${encodeURIComponent(normalizedPath)}`;
-  }
-
-  return normalizedPath.startsWith('/')
-    ? `${backendOrigin}${normalizedPath}`
-    : `${backendOrigin}/${normalizedPath}`;
+  return `${backendOrigin}/api/upload/file?src=${encodeURIComponent(normalizedPath)}`;
 };

@@ -1,5 +1,7 @@
 const router  = require('express').Router();
 const { GetObjectCommand } = require('@aws-sdk/client-s3');
+const fs = require('fs');
+const path = require('path');
 const {
   multer: uploadMiddleware,
   uploadToS3,
@@ -9,15 +11,40 @@ const {
 } = require('../middleware/upload');
 const { verifyToken, isAdminOrStaff } = require('../middleware/auth');
 
+const sendLocalUpload = (res, key) => {
+  const relativeKey = String(key || '').replace(/^\/+/, '');
+  const absolutePath = path.resolve(__dirname, '..', relativeKey);
+  const uploadsRoot = path.resolve(__dirname, '..', 'uploads');
+
+  if (!absolutePath.startsWith(uploadsRoot)) {
+    return false;
+  }
+
+  if (!fs.existsSync(absolutePath)) {
+    return false;
+  }
+
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.sendFile(absolutePath);
+  return true;
+};
+
 router.get('/file', async (req, res) => {
   try {
+    const { src } = req.query;
+    const { bucket, key } = resolveS3Object(src);
+
+    // Keep legacy local uploads working before falling back to S3-backed images.
+    if ((String(src || '').startsWith('/uploads/') || String(src || '').startsWith('uploads/')) && sendLocalUpload(res, key)) {
+      return;
+    }
+
     const missing = getMissingS3Env();
     if (missing.length > 0) {
       return res.status(500).json({ message: `Missing S3 configuration: ${missing.join(', ')}` });
     }
 
-    const { src } = req.query;
-    const { bucket, key } = resolveS3Object(src);
     const result = await getS3Client().send(new GetObjectCommand({
       Bucket: bucket,
       Key: key,
