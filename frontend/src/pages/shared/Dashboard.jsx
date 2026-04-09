@@ -259,10 +259,14 @@ export default function Dashboard({ isAdmin = false }) {
         </div>
       )}
 
-      {/* Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : isTablet ? 'repeat(3, 1fr)' : 'repeat(5, 1fr)', gap: 10 }}>
+      {/* Stat cards - single column for mobile */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(3, 1fr)' : 'repeat(5, 1fr)',
+        gap: 10
+      }}>
         {statsCards.map((item, i) => (
-          <div key={item.label} style={isMobile && i === statsCards.length - 1 ? { gridColumn: '1 / -1' } : undefined}>
+          <div key={item.label}>
             <StatCard {...item} />
           </div>
         ))}
@@ -397,9 +401,24 @@ export default function Dashboard({ isAdmin = false }) {
                 </td></tr>
               ) : recentOrders.map((o) => (
                 <tr key={o.id} style={{ height: 32 }}>
-                  <td style={{ fontSize: 12, padding: '3px 6px', color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.user_name}</td>
-                  <td style={{ fontSize: 12, padding: '3px 6px', color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.product_name}</td>
-                  <td style={{ fontSize: 12, padding: '3px 6px', color: C.text, whiteSpace: 'nowrap' }}>₹{parseFloat(o.total_price).toFixed(0)}</td>
+                  <td style={{
+                    fontSize: 12,
+                    padding: '3px 6px',
+                    color: C.text,
+                    ...(isMobile ? {} : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })
+                  }}>{o.user_name}</td>
+                  <td style={{
+                    fontSize: 12,
+                    padding: '3px 6px',
+                    color: C.muted,
+                    ...(isMobile ? {} : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })
+                  }}>{o.product_name}</td>
+                  <td style={{
+                    fontSize: 12,
+                    padding: '3px 6px',
+                    color: C.text,
+                    ...(isMobile ? {} : { whiteSpace: 'nowrap' })
+                  }}>₹{parseFloat(o.total_price).toFixed(0)}</td>
                   <td style={{ padding: '3px 6px' }}><StatusBadge status={o.status} /></td>
                 </tr>
               ))}
