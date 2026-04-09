@@ -83,6 +83,7 @@ export default function UserProducts() {
 
     const trimmed = String(v).trim();
     if (!/^\d+$/.test(trimmed)) return;
+    if (trimmed === '0') return;
     setQuantity(trimmed);
   };
 
@@ -204,7 +205,20 @@ export default function UserProducts() {
                   <>
                     <div className="mb-3">
                       <label className="modal-label">Quantity</label>
-                      <input type="number" className="form-control modal-input" min={1} step={1} value={quantity} onChange={e => handleQty(e.target.value)} placeholder="Enter quantity" />
+                      <input
+                        type="number"
+                        className="form-control modal-input"
+                        min={1}
+                        step={1}
+                        value={quantity}
+                        onChange={e => handleQty(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E' || e.key === '.') {
+                            e.preventDefault();
+                          }
+                        }}
+                        placeholder="Enter quantity"
+                      />
                       <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6 }}>Available stock: {orderModal.stock}</div>
                       <div style={{ color: !hasQuantity ? 'var(--muted)' : isQuantityAvailable ? 'var(--success)' : 'var(--danger)', fontSize: 12, marginTop: 6 }}>
                         {!hasQuantity
