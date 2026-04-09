@@ -209,6 +209,9 @@ export default function Dashboard({ isAdmin = false }) {
     { label: 'Cancelled', count: orderStatus.find((o) => o.status === 'cancelled')?.count || 0, color: C.danger  },
   ];
 
+  // filtered orders count for stat card
+  const filteredOrdersCount = filteredOrders.length;
+
   const statsCards = [
     { label: 'Total Products',  value: stats.products,         icon: HiOutlineCube,                color: C.primary },
     { label: 'Total Stock',     value: stats.stock,            icon: HiOutlineArchiveBox,          color: C.success },
@@ -222,9 +225,6 @@ export default function Dashboard({ isAdmin = false }) {
     },
     { label: 'Low Stock', value: stats.lowStock, icon: HiOutlineExclamationTriangle, color: stats.lowStock > 0 ? C.danger : C.muted },
   ];
-
-  // filtered orders count for stat card
-  const filteredOrdersCount = filteredOrders.length;
 
   return (
     <div style={{ background: C.bg, padding: isMobile ? '10px' : '14px', minHeight: '100%', display: 'flex', flexDirection: 'column', gap: 10, boxSizing: 'border-box', width: '100%', overflowX: 'hidden' }}>
