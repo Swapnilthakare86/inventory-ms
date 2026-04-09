@@ -24,7 +24,7 @@ export default function UserProducts() {
   const [catFilter, setCatFilter] = useState('');
   const [search, setSearch]       = useState('');
   const [orderModal, setOrderModal] = useState(null);
-  const [quantity, setQuantity]   = useState(1);
+  const [quantity, setQuantity]   = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading]     = useState(true);
@@ -55,15 +55,20 @@ export default function UserProducts() {
   const inStockCount   = products.filter(p => p.stock > 5).length;
   const outOfStockCount = products.filter(p => p.stock === 0).length;
   const isMobile = viewportWidth <= 768;
+  const requestedQuantity = Number(quantity);
+  const hasQuantity = String(quantity).trim() !== '';
+  const isValidQuantity = hasQuantity && Number.isInteger(requestedQuantity) && requestedQuantity > 0;
+  const isQuantityAvailable = !!orderModal && isValidQuantity && requestedQuantity <= orderModal.stock;
+  const orderTotal = isValidQuantity && orderModal ? requestedQuantity * orderModal.price : 0;
 
-  const openOrder  = (p) => { setOrderModal(p); setQuantity(1); setConfirmed(false); };
-  const closeModal = () => { setOrderModal(null); setQuantity(1); setConfirmed(false); };
+  const openOrder  = (p) => { setOrderModal(p); setQuantity(''); setConfirmed(false); };
+  const closeModal = () => { setOrderModal(null); setQuantity(''); setConfirmed(false); };
 
   const placeOrder = async () => {
-    if (!orderModal) return;
+    if (!orderModal || !isQuantityAvailable) return;
     setSubmitting(true);
     try {
-      await API.post('/orders', { product_id: orderModal.id, quantity });
+      await API.post('/orders', { product_id: orderModal.id, quantity: requestedQuantity });
       toast.success('Order placed successfully.');
       closeModal(); fetchData();
     } catch (err) { toast.error(err.response?.data?.message || 'Error placing order'); closeModal(); }
@@ -71,12 +76,17 @@ export default function UserProducts() {
   };
 
   const handleQty = (v) => {
-    const n = Number(v);
-    if (Number.isNaN(n)) { setQuantity(1); return; }
-    setQuantity(Math.min(orderModal.stock, Math.max(1, n)));
+    if (v === '') {
+      setQuantity('');
+      return;
+    }
+
+    const trimmed = String(v).trim();
+    if (!/^\d+$/.test(trimmed)) return;
+    setQuantity(trimmed);
   };
 
-  const canReview = orderModal && quantity >= 1 && quantity <= orderModal.stock;
+  const canReview = isQuantityAvailable;
 
   return (
     <div className="page" style={{ padding: isMobile ? '10px 10px 14px' : '8px 24px 24px' }}>
@@ -194,13 +204,20 @@ export default function UserProducts() {
                   <>
                     <div className="mb-3">
                       <label className="modal-label">Quantity</label>
-                      <input type="number" className="form-control modal-input" min={1} max={orderModal.stock} value={quantity} onChange={e => handleQty(e.target.value)} />
+                      <input type="number" className="form-control modal-input" min={1} step={1} value={quantity} onChange={e => handleQty(e.target.value)} placeholder="Enter quantity" />
                       <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6 }}>Available stock: {orderModal.stock}</div>
+                      <div style={{ color: !hasQuantity ? 'var(--muted)' : isQuantityAvailable ? 'var(--success)' : 'var(--danger)', fontSize: 12, marginTop: 6 }}>
+                        {!hasQuantity
+                          ? 'Enter quantity to check stock availability.'
+                          : isQuantityAvailable
+                            ? `${requestedQuantity} item(s) available. You can place this order.`
+                            : `Requested quantity is not available. Only ${orderModal.stock} item(s) in stock.`}
+                      </div>
                     </div>
                     <div className="order-total-box mb-4">
                       <div className="d-flex justify-content-between align-items-center">
                         <span style={{ color: 'var(--muted)', fontSize: 13 }}>Total amount</span>
-                        <span style={{ color: 'var(--text)', fontWeight: 700, fontSize: 18 }}>{formatCurrency(quantity * orderModal.price)}</span>
+                        <span style={{ color: 'var(--text)', fontWeight: 700, fontSize: 18 }}>{formatCurrency(orderTotal)}</span>
                       </div>
                     </div>
                     <div className="d-flex gap-2">
@@ -211,7 +228,7 @@ export default function UserProducts() {
                 ) : (
                   <>
                     <div className="mb-4" style={{ borderRadius: 16, border: '1px solid var(--border)', overflow: 'hidden' }}>
-                      {[['Product',orderModal.name],['Category',orderModal.category_name],['Quantity',quantity],['Price each',formatCurrency(orderModal.price)],['Total',formatCurrency(quantity * orderModal.price)]].map(([label, value], i, arr) => (
+                      {[['Product',orderModal.name],['Category',orderModal.category_name],['Quantity',requestedQuantity],['Price each',formatCurrency(orderModal.price)],['Total',formatCurrency(orderTotal)]].map(([label, value], i, arr) => (
                         <div key={label} className="order-review-row" style={{ borderBottom: i === arr.length - 1 ? 'none' : undefined }}>
                           <span style={{ color: 'var(--muted)' }}>{label}</span>
                           <span style={{ color: 'var(--text)', fontWeight: 600 }}>{value}</span>
@@ -219,7 +236,7 @@ export default function UserProducts() {
                       ))}
                     </div>
                     <div className="d-flex gap-2">
-                      <button type="button" className="btn flex-grow-1" onClick={placeOrder} disabled={submitting}
+                      <button type="button" className="btn flex-grow-1" onClick={placeOrder} disabled={submitting || !isQuantityAvailable}
                         style={{ borderRadius: 'var(--radius)', background: 'var(--success)', color: '#fff', fontWeight: 600, padding: '11px 14px' }}>
                         {submitting ? <><span className="spinner-border spinner-border-sm me-2" />Placing...</> : 'Confirm Order'}
                       </button>
