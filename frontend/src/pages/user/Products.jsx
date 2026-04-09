@@ -220,13 +220,13 @@ export default function UserProducts() {
                         placeholder="Enter quantity"
                       />
                       <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6 }}>Available stock: {orderModal.stock}</div>
-                      <div style={{ color: !hasQuantity ? 'var(--muted)' : isQuantityAvailable ? 'var(--success)' : 'var(--danger)', fontSize: 12, marginTop: 6 }}>
-                        {!hasQuantity
-                          ? 'Enter quantity to check stock availability.'
-                          : isQuantityAvailable
-                            ? `${requestedQuantity} item(s) available. You can place this order.`
+                      {hasQuantity && (
+                        <div style={{ color: isQuantityAvailable ? 'var(--success)' : 'var(--danger)', fontSize: 12, marginTop: 6 }}>
+                          {isQuantityAvailable
+                            ? 'You can place this order.'
                             : `Requested quantity is not available. Only ${orderModal.stock} item(s) in stock.`}
-                      </div>
+                        </div>
+                      )}
                     </div>
                     <div className="order-total-box mb-4">
                       <div className="d-flex justify-content-between align-items-center">
