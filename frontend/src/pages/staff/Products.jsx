@@ -1,32 +1,4 @@
 export { default } from '../admin/Products';
-        await API.post('/products', form);
-        toast.success('Product created.');
-      }
-      closeModal();
-      fetchAll();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Error');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    try {
-      await API.delete(`/products/${deleteId}`);
-      toast.success('Product deleted.');
-      fetchAll();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Error deleting product.');
-    } finally {
-      setDeleteId(null);
-    }
-  };
-
-  const filtered = products.filter((product) => {
-    const matchSearch =
-      product.name.toLowerCase().includes(search.toLowerCase()) ||
-      (product.category_name || '').toLowerCase().includes(search.toLowerCase()) ||
       (product.supplier_name || '').toLowerCase().includes(search.toLowerCase());
 
     const matchStock =
