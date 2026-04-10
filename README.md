@@ -369,11 +369,6 @@ GitHub Actions workflows are present under [.github/workflows](/abs/path/e:/inve
   - deploys microservice to EC2 over SSH
 
 
-## Notes
-
-- Some application features appear to have evolved beyond the initial SQL schema, so schema alignment should be verified before production rollout.
-- Secrets in `.env` should be stored securely and never committed to source control.
-- For production, consider adding HTTPS, reverse proxying, centralized logging, and automated tests.
 
 ## Future Improvements
 
@@ -384,6 +379,4 @@ GitHub Actions workflows are present under [.github/workflows](/abs/path/e:/inve
 - CloudFront/CDN for frontend delivery
 - container-based production deployment
 
-## License
 
-Add your project license here.
