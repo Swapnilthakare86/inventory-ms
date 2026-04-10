@@ -43,7 +43,22 @@ exports.update = async (req, res, next) => {
 exports.remove = async (req, res, next) => {
   try {
     await db.query('DELETE FROM products WHERE id = ?', [req.params.id]);
-    await logAction(req.user.id, 'DELETE_PRODUCT', `Product deleted: id=${req.params.id}`);
+
+    await logAction(
+      req.user.id,
+      'DELETE_PRODUCT',
+      `Product deleted: id=${req.params.id}`
+    );
+
     res.json({ message: 'Product deleted.' });
-  } catch (err) { next(err); }
+  } catch (err) {
+    // MySQL foreign key error
+    if (err.code === 'ER_ROW_IS_REFERENCED_2') {
+      return res.status(400).json({
+        message: 'Cannot delete product because it is already used in orders.'
+      });
+    }
+
+    next(err);
+  }
 };
