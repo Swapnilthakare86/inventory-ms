@@ -6,7 +6,6 @@ import {
   FiUsers, FiUser, FiLogOut, FiMenu
 } from 'react-icons/fi';
 
-const roleBadgeColor = { admin: '#e24b4a', staff: '#3d82f5', user: '#22b566' };
 
 export default function Sidebar() {
   const { user, logout } = useAuth();

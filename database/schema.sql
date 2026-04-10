@@ -1,61 +1,56 @@
-
 CREATE DATABASE IF NOT EXISTS inventory_ms;
+
 USE inventory_ms;
 
 CREATE TABLE users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
-  email VARCHAR(100) UNIQUE NOT NULL,
+  email VARCHAR(100) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
-  address VARCHAR(255),
-  role ENUM('admin', 'user') DEFAULT 'user',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+  address VARCHAR(255) DEFAULT NULL,
+  role ENUM('admin', 'staff', 'user') NOT NULL DEFAULT 'user',
+  reset_token VARCHAR(255) DEFAULT NULL,
+  reset_token_expires DATETIME DEFAULT NULL
+) ;
 
 CREATE TABLE categories (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
-  description TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+  description TEXT DEFAULT NULL,
+  UNIQUE KEY uq_categories_name (name)
+) ;
 
 CREATE TABLE suppliers (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
-  email VARCHAR(100),
-  phone VARCHAR(20),
-  address VARCHAR(255),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+  email VARCHAR(100) DEFAULT NULL,
+  phone VARCHAR(20) DEFAULT NULL,
+  address VARCHAR(255) DEFAULT NULL
+) ;
 
 CREATE TABLE products (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
-  category_id INT,
-  supplier_id INT,
+  category_id INT DEFAULT NULL,
+  supplier_id INT DEFAULT NULL,
   price DECIMAL(10,2) NOT NULL,
-  stock INT DEFAULT 0,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
-  FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL
-);
+  stock INT NOT NULL DEFAULT 0,
+  image VARCHAR(1024) DEFAULT NULL
+) ;
 
-CREATE TABLE orders (
+CREATE TABLE  orders (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id INT NOT NULL,
   product_id INT NOT NULL,
   quantity INT NOT NULL,
   total_price DECIMAL(10,2) NOT NULL,
-  status ENUM('placed', 'received', 'cancelled') DEFAULT 'placed',
-  order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id),
-  FOREIGN KEY (product_id) REFERENCES products(id)
+  status ENUM('placed', 'received', 'cancelled') NOT NULL DEFAULT 'placed'
 );
 
-CREATE TABLE logs (
+CREATE TABLE  logs (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT,
-  action VARCHAR(255),
-  details TEXT,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+  user_id INT DEFAULT NULL,
+  action VARCHAR(255) NOT NULL,
+  details TEXT DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ;
